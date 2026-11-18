@@ -7,6 +7,7 @@ const DAYS = [
 ];
 
 const STORAGE_KEY = "bodyTrackWorkouts";
+const NAME_KEY = "bodyTrackDisplayName";
 
 let selectedDay = DAYS[0];
 
@@ -50,6 +51,28 @@ function saveWorkouts() {
   } catch (error) {
     console.error("Workout data could not be saved:", error);
     alert("ذخیره اطلاعات انجام نشد. فضای ذخیره‌سازی مرورگر را بررسی کن.");
+  }
+}
+
+function getUserName() {
+  try {
+    return localStorage.getItem(NAME_KEY) || "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function saveUserName(name) {
+  const cleanName = String(name || "").trim().slice(0, 30);
+
+  if (!cleanName) return false;
+
+  try {
+    localStorage.setItem(NAME_KEY, cleanName);
+    return true;
+  } catch (error) {
+    console.error("Name could not be saved:", error);
+    return false;
   }
 }
 
@@ -97,7 +120,6 @@ function renderLayout(content, activePage = "home") {
 
   app.innerHTML = `
     <div class="app-shell">
-
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-mark">BT</div>
@@ -153,39 +175,383 @@ function renderLayout(content, activePage = "home") {
 
       <nav class="mobile-nav">
         <button type="button" data-page="home" class="${activePage === "home" ? "active" : ""}">
-          ${icons.home}
-          <small>خانه</small>
+          ${icons.home}<small>خانه</small>
         </button>
 
         <button type="button" data-page="workout" class="${activePage === "workout" ? "active" : ""}">
-          ${icons.workout}
-          <small>تمرین</small>
+          ${icons.workout}<small>تمرین</small>
         </button>
 
         <button type="button" data-page="body" class="${activePage === "body" ? "active" : ""}">
-          ${icons.body}
-          <small>اندازه‌ها</small>
+          ${icons.body}<small>اندازه‌ها</small>
         </button>
 
         <button type="button" data-page="progress" class="${activePage === "progress" ? "active" : ""}">
-          ${icons.progress}
-          <small>پیشرفت</small>
+          ${icons.progress}<small>پیشرفت</small>
         </button>
 
         <button type="button" data-page="more" class="${activePage === "more" ? "active" : ""}">
-          ${icons.more}
-          <small>بیشتر</small>
+          ${icons.more}<small>بیشتر</small>
         </button>
       </nav>
-
     </div>
   `;
+}
+
+function renderNameSetup() {
+  const overlay = document.createElement("div");
+  overlay.id = "body-track-name-setup";
+
+  overlay.style.cssText = `
+    position:fixed;
+    inset:0;
+    z-index:9999;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    background:rgba(3,10,7,.94);
+    backdrop-filter:blur(18px);
+  `;
+
+  overlay.innerHTML = `
+    <form id="name-setup-form" style="
+      width:100%;
+      max-width:420px;
+      padding:32px 24px;
+      border:1px solid rgba(0,217,149,.22);
+      border-radius:24px;
+      background:#0c1913;
+      text-align:center;
+      box-shadow:0 20px 80px rgba(0,0,0,.4);
+    ">
+      <div style="
+        width:68px;
+        height:68px;
+        display:grid;
+        place-items:center;
+        margin:0 auto 22px;
+        border-radius:20px;
+        background:rgba(0,217,149,.12);
+        color:#8BFFCB;
+        font-size:25px;
+        font-weight:800;
+      ">BT</div>
+
+      <span style="
+        color:#8BFFCB;
+        font-size:11px;
+        letter-spacing:2px;
+      ">WELCOME TO BODY TRACK</span>
+
+      <h2 style="color:#fff;margin:14px 0 10px;font-size:25px;">
+        دوست داری چی صدات کنیم؟
+      </h2>
+
+      <p style="color:#a5b7ad;font-size:14px;line-height:2;margin-bottom:24px;">
+        اسمت رو وارد کن تا تجربه شخصی خودت رو شروع کنیم.
+      </p>
+
+      <input
+        id="body-track-user-name"
+        type="text"
+        maxlength="30"
+        autocomplete="given-name"
+        placeholder="مثلاً محمد"
+        required
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:15px;
+          border:1px solid rgba(0,217,149,.25);
+          border-radius:13px;
+          outline:none;
+          background:#13241b;
+          color:#fff;
+          font:inherit;
+          text-align:center;
+          margin-bottom:16px;
+        "
+      />
+
+      <button type="submit" style="
+        width:100%;
+        padding:15px;
+        border:0;
+        border-radius:13px;
+        background:#00D995;
+        color:#062016;
+        font:inherit;
+        font-weight:800;
+        cursor:pointer;
+      ">شروع کنیم ←</button>
+
+      <small style="display:block;color:#71877a;margin-top:18px;">
+        YOUR BODY. YOUR JOURNEY.
+      </small>
+    </form>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector("#body-track-user-name");
+  input.focus();
+
+  overlay.querySelector("#name-setup-form").addEventListener("submit", event => {
+    event.preventDefault();
+
+    const name = input.value.trim();
+
+    if (!name) {
+      input.focus();
+      return;
+    }
+
+    if (!saveUserName(name)) {
+      alert("ذخیره نام انجام نشد. دوباره تلاش کن.");
+      return;
+    }
+
+    overlay.remove();
+    renderHome();
+  });
+}
+
+function getMeasurements() {
+  try {
+    if (
+      typeof BodyTracker !== "undefined" &&
+      typeof BodyTracker.getData === "function"
+    ) {
+      const data = BodyTracker.getData();
+      return Array.isArray(data) ? data : [];
+    }
+  } catch (error) {
+    console.error("Measurement data error:", error);
+  }
+
+  return [];
+}
+
+function formatMeasurement(value) {
+  if (value === undefined || value === null || value === "") {
+    return "—";
+  }
+
+  return escapeHTML(value);
+}
+
+function getMeasurementChange(current, previous, field, unit = "") {
+  const currentValue = Number(current?.[field]);
+  const previousValue = Number(previous?.[field]);
+
+  if (
+    !current ||
+    !previous ||
+    current[field] === "" ||
+    previous[field] === "" ||
+    !Number.isFinite(currentValue) ||
+    !Number.isFinite(previousValue)
+  ) {
+    return "برای مقایسه، به ثبت قبلی نیاز داریم.";
+  }
+
+  const difference = currentValue - previousValue;
+
+  if (difference === 0) return "بدون تغییر نسبت به ثبت قبلی";
+
+  const sign = difference > 0 ? "+" : "";
+  return `${sign}${difference.toFixed(1)} ${unit} نسبت به ثبت قبلی`;
+}
+
+function getWeeklyStats() {
+  const allExercises = DAYS.flatMap(day => workoutData[day] || []);
+  const total = allExercises.length;
+  const completed = allExercises.filter(item => item.completed).length;
+  const percentage = total ? Math.round((completed / total) * 100) : 0;
+
+  const dayStats = DAYS.map(day => {
+    const exercises = workoutData[day] || [];
+    const done = exercises.filter(item => item.completed).length;
+
+    return {
+      day,
+      total: exercises.length,
+      completed: done,
+      percentage: exercises.length
+        ? Math.round((done / exercises.length) * 100)
+        : 0
+    };
+  });
+
+  return { total, completed, percentage, dayStats };
+}
+
+function renderHome() {
+  const name = getUserName();
+
+  if (!name) {
+    renderLayout("", "home");
+    renderNameSetup();
+    return;
+  }
+
+  const measurements = getMeasurements();
+  const latest = measurements.length
+    ? measurements[measurements.length - 1]
+    : null;
+
+  const previous = measurements.length > 1
+    ? measurements[measurements.length - 2]
+    : null;
+
+  const weekly = getWeeklyStats();
+
+  const content = `
+    <section class="welcome-card">
+      <div>
+        <span class="eyebrow">YOUR PERSONAL FITNESS SPACE</span>
+        <h2>سلام ${escapeHTML(name)}، خوش اومدی! 👋</h2>
+        <p>امروز هم فرصتیه برای نزدیک‌تر شدن به هدفت. هر روز، یک قدم قوی‌تر.</p>
+
+        <button type="button" class="primary-btn" data-page="workout">
+          مشاهده برنامه تمرینی
+        </button>
+
+        <button type="button" class="secondary-btn" id="change-user-name"
+          style="margin-right:8px;">
+          تغییر نام
+        </button>
+      </div>
+
+      <div class="welcome-decoration">BT</div>
+    </section>
+
+    <div class="section-heading">
+      <div>
+        <span class="eyebrow">YOUR BODY STATUS</span>
+        <h3>وضعیت بدن</h3>
+      </div>
+      <button type="button" class="secondary-btn" data-page="body">
+        ثبت اندازه جدید
+      </button>
+    </div>
+
+    <div class="stats-grid">
+      <article class="stat-card">
+        <span>وزن فعلی</span>
+        <strong>${formatMeasurement(latest?.weight)}</strong>
+        <small>${latest?.weight !== undefined ? "کیلوگرم" : "هنوز ثبت نشده"}</small>
+      </article>
+
+      <article class="stat-card">
+        <span>دور بازو</span>
+        <strong>${formatMeasurement(latest?.arm)}</strong>
+        <small>${latest?.arm !== undefined ? "سانتی‌متر" : "هنوز ثبت نشده"}</small>
+      </article>
+
+      <article class="stat-card">
+        <span>دور سینه</span>
+        <strong>${formatMeasurement(latest?.chest)}</strong>
+        <small>${latest?.chest !== undefined ? "سانتی‌متر" : "هنوز ثبت نشده"}</small>
+      </article>
+    </div>
+
+    <section class="stat-card" style="margin-top:16px;">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">LATEST MEASUREMENT</span>
+          <h3>آخرین ثبت اندازه‌ها</h3>
+        </div>
+        <span class="muted-text">${latest?.date ? escapeHTML(latest.date) : "بدون تاریخ"}</span>
+      </div>
+
+      ${
+        latest
+          ? `
+            <div style="display:grid;gap:12px;">
+              <div>
+                <strong>تغییر وزن:</strong>
+                <span>${getMeasurementChange(latest, previous, "weight", "کیلوگرم")}</span>
+              </div>
+              <div>
+                <strong>تغییر دور بازو:</strong>
+                <span>${getMeasurementChange(latest, previous, "arm", "سانتی‌متر")}</span>
+              </div>
+              <div>
+                <strong>تغییر دور سینه:</strong>
+                <span>${getMeasurementChange(latest, previous, "chest", "سانتی‌متر")}</span>
+              </div>
+            </div>
+          `
+          : `
+            <p class="muted-text">هنوز اندازه‌ای ثبت نکردی. اولین اندازه‌گیریت رو ثبت کن تا تغییراتت رو ببینی.</p>
+          `
+      }
+    </section>
+
+    <div class="section-heading" style="margin-top:30px;">
+      <div>
+        <span class="eyebrow">WEEKLY WORKOUT REPORT</span>
+        <h3>گزارش برنامه هفتگی</h3>
+      </div>
+      <span class="muted-text">بر اساس برنامه ثبت‌شده</span>
+    </div>
+
+    <section class="stat-card">
+      <div class="stats-grid">
+        <article>
+          <span>کل حرکات</span>
+          <strong>${weekly.total}</strong>
+        </article>
+        <article>
+          <span>انجام‌شده</span>
+          <strong>${weekly.completed}</strong>
+        </article>
+        <article>
+          <span>درصد تکمیل</span>
+          <strong>${weekly.percentage}%</strong>
+        </article>
+      </div>
+
+      <div class="workout-progress-track" style="margin-top:20px;">
+        <div class="workout-progress-fill" style="width:${weekly.percentage}%"></div>
+      </div>
+
+      <p class="muted-text" style="margin-top:12px;">
+        ${
+          weekly.total
+            ? `تا اینجا ${weekly.percentage} درصد از حرکات برنامه‌ات تکمیل شده.`
+            : "هنوز حرکتی در برنامه هفتگی ثبت نکردی."
+        }
+      </p>
+
+      <div style="display:grid;gap:14px;margin-top:22px;">
+        ${weekly.dayStats.map(item => `
+          <div>
+            <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:7px;">
+              <strong>${item.day}</strong>
+              <small>${item.completed} از ${item.total}</small>
+            </div>
+            <div class="workout-progress-track">
+              <div class="workout-progress-fill" style="width:${item.percentage}%"></div>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+
+      <button type="button" class="primary-btn" data-page="workout" style="margin-top:22px;">
+        رفتن به برنامه تمرینی
+      </button>
+    </section>
+  `;
+
+  renderLayout(content, "home");
 }
 
 function renderMore() {
   const content = `
     <section class="more-page">
-
       <div class="more-page-intro">
         <span class="eyebrow">BODY TRACK TOOLS</span>
         <h2>بخش‌های بیشتر</h2>
@@ -193,7 +559,6 @@ function renderMore() {
       </div>
 
       <div class="more-page-grid">
-
         <button type="button" class="more-page-card" data-page="photos">
           <span class="more-page-icon">${icons.photos}</span>
           <strong>گالری تصاویر بدن</strong>
@@ -214,77 +579,16 @@ function renderMore() {
           <small>خروجی گرفتن و بازیابی اطلاعات</small>
           <span class="more-page-arrow">←</span>
         </button>
-
       </div>
 
       <div class="more-page-footer">
         <span class="eyebrow">YOUR BODY. YOUR JOURNEY.</span>
         <strong>BODY TRACK</strong>
       </div>
-
     </section>
   `;
 
   renderLayout(content, "more");
-}
-
-function renderHome() {
-  const allExercises = Object.values(workoutData).flat();
-  const totalExercises = allExercises.length;
-
-  const completedExercises = allExercises.filter(
-    item => item.completed
-  ).length;
-
-  const measurements = BodyTracker.getData();
-  const latestMeasurement = measurements.length
-    ? measurements[measurements.length - 1]
-    : null;
-
-  const content = `
-    <section class="welcome-card">
-      <div>
-        <span class="eyebrow">YOUR JOURNEY STARTS HERE</span>
-        <h2>هر روز، یک قدم قوی‌تر.</h2>
-        <p>تمرین‌ها و تغییرات بدنت رو ثبت کن و مسیر پیشرفتت رو ببین.</p>
-
-        <button type="button" class="primary-btn" data-page="workout">
-          مشاهده برنامه تمرینی
-        </button>
-      </div>
-
-      <div class="welcome-decoration">BT</div>
-    </section>
-
-    <div class="section-heading">
-      <div>
-        <span class="eyebrow">YOUR OVERVIEW</span>
-        <h3>نمای کلی فعالیت‌ها</h3>
-      </div>
-    </div>
-
-    <div class="stats-grid">
-      <article class="stat-card">
-        <span>کل تمرین‌ها</span>
-        <strong>${totalExercises}</strong>
-        <small>تمرین ثبت‌شده</small>
-      </article>
-
-      <article class="stat-card">
-        <span>تمرین‌های انجام‌شده</span>
-        <strong>${completedExercises}</strong>
-        <small>تکمیل‌شده</small>
-      </article>
-
-      <article class="stat-card">
-        <span>وزن آخر</span>
-        <strong>${escapeHTML(latestMeasurement?.weight ?? "—")}</strong>
-        <small>${latestMeasurement ? "کیلوگرم" : "هنوز ثبت نشده"}</small>
-      </article>
-    </div>
-  `;
-
-  renderLayout(content, "home");
 }
 
 function renderWorkout() {
@@ -297,7 +601,6 @@ function renderWorkout() {
 
   const content = `
     <section class="workout-compact">
-
       <div class="workout-week-header">
         <div>
           <span class="eyebrow">WEEKLY PLAN</span>
@@ -312,11 +615,9 @@ function renderWorkout() {
           const done = exercises.filter(item => item.completed).length;
 
           return `
-            <button
-              type="button"
+            <button type="button"
               class="day-card ${selectedDay === day ? "selected" : ""}"
-              data-day="${day}"
-            >
+              data-day="${day}">
               <span>${day}</span>
               ${exercises.length ? `<small>${done}/${exercises.length}</small>` : ""}
             </button>
@@ -325,94 +626,57 @@ function renderWorkout() {
       </div>
 
       <section class="workout-day-section">
-
         <div class="workout-day-heading">
           <div>
             <span class="eyebrow">SELECTED DAY</span>
             <h3>تمرین‌های ${selectedDay}</h3>
           </div>
-
           <span class="workout-count">
             ${completedCount} از ${totalCount} انجام‌شده
           </span>
         </div>
 
         <div class="workout-progress-track">
-          <div
-            class="workout-progress-fill"
-            style="width:${progress}%"
-          ></div>
+          <div class="workout-progress-fill" style="width:${progress}%"></div>
         </div>
 
         <details class="add-exercise-details">
           <summary>+ افزودن حرکت جدید</summary>
 
           <form id="exercise-form" class="compact-exercise-form">
-
             <div class="form-grid">
               <label>
                 نام حرکت
-                <input
-                  name="exercise"
-                  type="text"
-                  maxlength="80"
-                  placeholder="مثلاً جلو بازو"
-                  required
-                />
+                <input name="exercise" type="text" maxlength="80"
+                  placeholder="مثلاً جلو بازو" required />
               </label>
 
               <label>
                 تعداد ست
-                <input
-                  name="sets"
-                  type="number"
-                  min="1"
-                  max="100"
-                  step="1"
-                  placeholder="3"
-                  required
-                />
+                <input name="sets" type="number" min="1" max="100"
+                  step="1" placeholder="3" required />
               </label>
 
               <label>
                 تعداد تکرار
-                <input
-                  name="reps"
-                  type="number"
-                  min="1"
-                  max="1000"
-                  step="1"
-                  placeholder="15"
-                  required
-                />
+                <input name="reps" type="number" min="1" max="1000"
+                  step="1" placeholder="15" required />
               </label>
 
               <label>
                 وزن (کیلوگرم)
-                <input
-                  name="weight"
-                  type="number"
-                  min="0"
-                  max="1000"
-                  step="0.5"
-                  placeholder="اختیاری"
-                />
+                <input name="weight" type="number" min="0" max="1000"
+                  step="0.5" placeholder="اختیاری" />
               </label>
             </div>
 
             <label>
               توضیحات
-              <textarea
-                name="note"
-                maxlength="500"
-                placeholder="توضیحات اختیاری..."
-              ></textarea>
+              <textarea name="note" maxlength="500"
+                placeholder="توضیحات اختیاری..."></textarea>
             </label>
 
-            <button type="submit" class="primary-btn">
-              ذخیره حرکت
-            </button>
-
+            <button type="submit" class="primary-btn">ذخیره حرکت</button>
           </form>
         </details>
 
@@ -421,46 +685,19 @@ function renderWorkout() {
             totalCount
               ? dayExercises.map((item, index) => `
                 <article class="exercise-card compact-exercise-card ${item.completed ? "completed" : ""}">
-
                   <div class="exercise-info">
                     <strong>${escapeHTML(item.exercise)}</strong>
-
-                    <span>
-                      ${escapeHTML(item.sets)} ست ×
-                      ${escapeHTML(item.reps)} تکرار
-                    </span>
-
-                    ${
-                      item.weight !== ""
-                        ? `<small>وزن: ${escapeHTML(item.weight)} کیلوگرم</small>`
-                        : ""
-                    }
-
-                    ${
-                      item.note
-                        ? `<small>${escapeHTML(item.note)}</small>`
-                        : ""
-                    }
+                    <span>${escapeHTML(item.sets)} ست × ${escapeHTML(item.reps)} تکرار</span>
+                    ${item.weight !== "" ? `<small>وزن: ${escapeHTML(item.weight)} کیلوگرم</small>` : ""}
+                    ${item.note ? `<small>${escapeHTML(item.note)}</small>` : ""}
                   </div>
 
                   <div class="exercise-actions">
-                    <button
-                      type="button"
-                      data-complete="${index}"
-                      class="complete-btn"
-                    >
+                    <button type="button" data-complete="${index}" class="complete-btn">
                       ${item.completed ? "✓ انجام شد" : "تکمیل"}
                     </button>
-
-                    <button
-                      type="button"
-                      data-delete="${index}"
-                      class="delete-btn"
-                    >
-                      حذف
-                    </button>
+                    <button type="button" data-delete="${index}" class="delete-btn">حذف</button>
                   </div>
-
                 </article>
               `).join("")
               : `
@@ -477,7 +714,6 @@ function renderWorkout() {
             ? `<div class="workout-finished-message">🎉 آفرین! تمرین‌های ${selectedDay} رو کامل انجام دادی.</div>`
             : ""
         }
-
       </section>
     </section>
   `;
@@ -517,12 +753,9 @@ function showPage(page) {
 
     case "photos":
       PhotosManager.render()
-        .then(content => {
-          renderLayout(content, "photos");
-        })
+        .then(content => renderLayout(content, "photos"))
         .catch(error => {
           console.error("Photos page error:", error);
-
           renderLayout(`
             <div class="empty-state">
               <strong>بارگذاری تصاویر ممکن نشد</strong>
@@ -541,6 +774,26 @@ document.addEventListener("click", event => {
   const target = event.target;
 
   if (!(target instanceof Element)) return;
+
+  if (target.closest("#change-user-name")) {
+    const currentName = getUserName();
+    const newName = prompt("دوست داری با چه اسمی صدات کنیم؟", currentName);
+
+    if (newName === null) return;
+
+    if (!newName.trim()) {
+      alert("نام نمی‌تواند خالی باشد.");
+      return;
+    }
+
+    if (saveUserName(newName)) {
+      renderHome();
+    } else {
+      alert("ذخیره نام انجام نشد.");
+    }
+
+    return;
+  }
 
   const pageButton = target.closest("[data-page]");
 
@@ -566,7 +819,6 @@ document.addEventListener("click", event => {
     if (!Number.isInteger(index) || !exercises[index]) return;
 
     exercises[index].completed = !exercises[index].completed;
-
     saveWorkouts();
     renderWorkout();
     return;
@@ -581,7 +833,6 @@ document.addEventListener("click", event => {
     if (!Number.isInteger(index) || !exercises[index]) return;
 
     exercises.splice(index, 1);
-
     saveWorkouts();
     renderWorkout();
   }
@@ -642,4 +893,9 @@ document.addEventListener("submit", event => {
   renderWorkout();
 });
 
-renderHome();
+if (getUserName()) {
+  renderHome();
+} else {
+  renderLayout("", "home");
+  renderNameSetup();
+}
