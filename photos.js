@@ -5,18 +5,26 @@ const PhotosManager = {
   db: null,
   selectedPhotos: [],
   objectUrls: [],
-  comparisonUrls: [],
+  previewUrls: {},
+
+  localDate() {
+    const d = new Date();
+    const offset = d.getTimezoneOffset();
+    return new Date(d.getTime() - offset * 60000)
+      .toISOString().slice(0, 10);
+  },
 
   openDB() {
     return new Promise((resolve, reject) => {
       if (this.db) {
-        resolve(this.db);
-        return;
-      }
-
-      if (!("indexedDB" in window)) {
-        reject(new Error("IndexedDB پشتیبانی نمی‌شود."));
-        return;
+        try {
+          if (this.db.objectStoreNames.contains(this.storeName)) {
+            resolve(this.db);
+            return;
+          }
+        } catch (_) {
+          this.db = null;
+        }
       }
 
       const request = indexedDB.open(this.dbName, 1);
@@ -29,27 +37,22 @@ const PhotosManager = {
             keyPath: "id",
             autoIncrement: true
           });
-
-          store.createIndex("date", "date", {
-            unique: false
-          });
+          store.createIndex("date", "date", { unique: false });
         }
       };
 
       request.onsuccess = event => {
         this.db = event.target.result;
-
         this.db.onversionchange = () => {
           this.db.close();
           this.db = null;
         };
-
         resolve(this.db);
       };
 
       request.onerror = () => reject(request.error);
       request.onblocked = () =>
-        reject(new Error("پایگاه داده مشغول است."));
+        reject(new Error("دسترسی به پایگاه داده مسدود شده است."));
     });
   },
 
@@ -57,47 +60,93 @@ const PhotosManager = {
     const db = await this.openDB();
 
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(this.storeName, "readonly");
-      const request = transaction.objectStore(this.storeName).getAll();
+      const tx = db.transaction(this.storeName, "readonly");
+      const request = tx.objectStore(this.storeName).getAll();
+
+      let result = [];
 
       request.onsuccess = () => {
-        const photos = request.result || [];
-
-        photos.sort((a, b) =>
-          String(b.date || "").localeCompare(String(a.date || ""))
-        );
-
-        resolve(photos);
+        result = request.result || [];
       };
 
       request.onerror = () => reject(request.error);
+      tx.oncomplete = () => {
+        result.sort((a, b) =>
+          String(b.date || "").localeCompare(String(a.date || ""))
+        );
+        resolve(result);
+      };
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   },
 
   async addPhoto(file, date, note) {
+    if (!(file instanceof Blob) || !file.type.startsWith("image/")) {
+      throw new Error("فایل انتخاب‌شده تصویر معتبر نیست.");
+    }
+
     const db = await this.openDB();
 
-    const photo = {
-      image: file,
-      date,
-      note,
-      createdAt: new Date().toISOString()
-    };
-
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(this.storeName, "readwrite");
-      const request = transaction.objectStore(this.storeName).add(photo);
+      const tx = db.transaction(this.storeName, "readwrite");
+      const store = tx.objectStore(this.storeName);
 
-      let id;
+      const request = store.add({
+        image: file,
+        date,
+        note,
+        createdAt: new Date().toISOString()
+      });
+
+      let id = null;
+      let requestError = null;
 
       request.onsuccess = () => {
         id = request.result;
       };
 
-      transaction.oncomplete = () => resolve(id);
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () =>
-        reject(transaction.error || new Error("ذخیره لغو شد."));
+      request.onerror = () => {
+        requestError = request.error;
+      };
+
+      tx.oncomplete = async () => {
+        if (id === null || requestError) {
+          reject(requestError || new Error("شناسه عکس ایجاد نشد."));
+          return;
+        }
+
+        try {
+          const saved = await this.getPhoto(id);
+
+          if (!saved || !(saved.image instanceof Blob)) {
+            reject(new Error("عکس در آرشیو قابل بازیابی نیست."));
+            return;
+          }
+
+          resolve(id);
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      tx.onerror = () =>
+        reject(tx.error || new Error("خطای ذخیره عکس"));
+
+      tx.onabort = () =>
+        reject(tx.error || new Error("تراکنش ذخیره لغو شد."));
+    });
+  },
+
+  async getPhoto(id) {
+    const db = await this.openDB();
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, "readonly");
+      const request = tx.objectStore(this.storeName).get(Number(id));
+
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
     });
   },
 
@@ -105,18 +154,24 @@ const PhotosManager = {
     const db = await this.openDB();
 
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(this.storeName, "readwrite");
+      const tx = db.transaction(this.storeName, "readwrite");
+      tx.objectStore(this.storeName).delete(Number(id));
 
-      transaction.objectStore(this.storeName).delete(Number(id));
-
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   },
 
-  createObjectUrl(file) {
-    const url = URL.createObjectURL(file);
+  isValidImage(file) {
+    return file instanceof Blob &&
+      ["image/jpeg", "image/png", "image/webp"].includes(file.type) &&
+      file.size > 0 &&
+      file.size <= 10 * 1024 * 1024;
+  },
+
+  createObjectUrl(blob) {
+    const url = URL.createObjectURL(blob);
     this.objectUrls.push(url);
     return url;
   },
@@ -126,56 +181,58 @@ const PhotosManager = {
     this.objectUrls = [];
   },
 
-  clearComparisonUrls() {
-    this.comparisonUrls.forEach(url => URL.revokeObjectURL(url));
-    this.comparisonUrls = [];
+  clearPreviewUrls() {
+    Object.values(this.previewUrls).forEach(url => {
+      URL.revokeObjectURL(url);
+    });
+    this.previewUrls = {};
   },
 
-  isValidImage(file) {
-    return file &&
-      ["image/jpeg", "image/png", "image/webp"].includes(file.type) &&
-      file.size <= 10 * 1024 * 1024;
+  escape(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    })[char]);
   },
 
-  render() {
+  async render() {
     this.clearObjectUrls();
-    this.clearComparisonUrls();
 
-    return this.renderContent();
-  },
-
-  async renderContent() {
     try {
       const photos = await this.getAll();
 
       const cards = photos.length
-        ? photos.map(photo => `
-          <article class="photo-card">
-            <img
-              src="${this.createObjectUrl(photo.image)}"
-              alt="تصویر ثبت‌شده"
-              loading="lazy"
-            />
-            <div class="photo-card-info">
-              <strong>${this.escape(photo.date)}</strong>
-              <p>${this.escape(photo.note || "بدون توضیحات")}</p>
+        ? photos.map(photo => {
+            if (!(photo.image instanceof Blob)) return "";
 
-              <div class="photo-actions">
-                <button
-                  type="button"
-                  class="delete-btn"
-                  data-photo-delete="${Number(photo.id)}"
-                >
-                  حذف تصویر
-                </button>
-              </div>
-            </div>
-          </article>
-        `).join("")
+            return `
+              <article class="photo-card">
+                <img
+                  src="${this.createObjectUrl(photo.image)}"
+                  alt="تصویر ثبت‌شده"
+                  loading="lazy"
+                />
+                <div class="photo-card-info">
+                  <strong>${this.escape(photo.date)}</strong>
+                  <p>${this.escape(photo.note || "بدون توضیحات")}</p>
+                  <div class="photo-actions">
+                    <button
+                      type="button"
+                      class="delete-btn"
+                      data-photo-delete="${Number(photo.id)}"
+                    >حذف تصویر</button>
+                  </div>
+                </div>
+              </article>
+            `;
+          }).join("")
         : `
           <div class="empty-state">
             <strong>هنوز عکسی ثبت نکرده‌ای</strong>
-            <p>اولین عکس مسیر تغییراتت رو اضافه کن.</p>
+            <p>اولین عکس مسیر پیشرفتت رو اضافه کن.</p>
           </div>
         `;
 
@@ -206,11 +263,11 @@ const PhotosManager = {
               />
             </label>
 
-            <div id="photo-preview-box" style="display:none; margin:12px 0;">
+            <div id="photo-preview-box" style="display:none;margin:12px 0">
               <img
                 id="photo-preview"
                 alt="پیش‌نمایش عکس"
-                style="width:100%; max-height:260px; object-fit:contain; border-radius:16px;"
+                style="width:100%;max-height:260px;object-fit:contain;border-radius:16px"
               />
             </div>
 
@@ -219,8 +276,8 @@ const PhotosManager = {
               <input
                 type="date"
                 name="date"
-                value="${new Date().toISOString().slice(0, 10)}"
-                max="${new Date().toISOString().slice(0, 10)}"
+                value="${this.localDate()}"
+                max="${this.localDate()}"
                 required
               />
             </label>
@@ -246,7 +303,6 @@ const PhotosManager = {
 
           <form id="photo-compare-form">
             <div class="comparison-grid">
-
               <label class="comparison-upload">
                 <span>انتخاب عکس اول</span>
                 <input
@@ -258,7 +314,7 @@ const PhotosManager = {
                 <img
                   id="compare-image-one"
                   alt="پیش‌نمایش عکس اول"
-                  style="display:none; width:100%; max-height:300px; object-fit:contain; border-radius:14px;"
+                  style="display:none;width:100%;max-height:300px;object-fit:contain;border-radius:14px"
                 />
               </label>
 
@@ -273,10 +329,9 @@ const PhotosManager = {
                 <img
                   id="compare-image-two"
                   alt="پیش‌نمایش عکس دوم"
-                  style="display:none; width:100%; max-height:300px; object-fit:contain; border-radius:14px;"
+                  style="display:none;width:100%;max-height:300px;object-fit:contain;border-radius:14px"
                 />
               </label>
-
             </div>
 
             <button type="submit" class="primary-btn">
@@ -287,9 +342,7 @@ const PhotosManager = {
               type="button"
               class="secondary-btn"
               id="clear-photo-comparison"
-            >
-              پاک‌کردن مقایسه
-            </button>
+            >پاک‌کردن مقایسه</button>
           </form>
         </section>
 
@@ -300,27 +353,29 @@ const PhotosManager = {
           </div>
         </div>
 
-        <div class="photo-gallery">
-          ${cards}
-        </div>
+        <div class="photo-gallery">${cards}</div>
       `;
     } catch (error) {
       console.error("Photos render error:", error);
-
       return `
         <div class="empty-state">
-          <strong>گالری در دسترس نیست</strong>
-          <p>مشکل در دسترسی به حافظه تصاویر.</p>
+          <strong>بارگذاری آرشیو تصاویر ناموفق بود</strong>
+          <p>${this.escape(error.message)}</p>
         </div>
       `;
     }
   },
 
-  showPreview(input, imageId, previewUrlKey) {
-    const file = input.files && input.files[0];
+  showPreview(input, imageId, key) {
+    const file = input.files?.[0];
     const image = document.getElementById(imageId);
 
     if (!image) return;
+
+    if (this.previewUrls[key]) {
+      URL.revokeObjectURL(this.previewUrls[key]);
+      delete this.previewUrls[key];
+    }
 
     if (!file) {
       image.removeAttribute("src");
@@ -336,33 +391,14 @@ const PhotosManager = {
       return;
     }
 
-    if (this[previewUrlKey]) {
-      URL.revokeObjectURL(this[previewUrlKey]);
-    }
-
     const url = URL.createObjectURL(file);
-    this[previewUrlKey] = url;
-
+    this.previewUrls[key] = url;
     image.src = url;
     image.style.display = "block";
   },
 
-  previewPhotoUrl: null,
-  previewFirstUrl: null,
-  previewSecondUrl: null,
-
-  escape(value) {
-    return String(value ?? "").replace(/[&<>"']/g, char => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    })[char]);
-  },
-
   async handleSubmit(event) {
-    if (!event.target || event.target.id !== "photo-form") return;
+    if (event.target?.id !== "photo-form") return;
 
     event.preventDefault();
 
@@ -373,18 +409,16 @@ const PhotosManager = {
     const button = document.getElementById("photo-save-btn");
 
     if (!this.isValidImage(file)) {
-      alert("لطفاً یک عکس معتبر JPG، PNG یا WEBP تا حجم ۱۰ مگابایت انتخاب کن.");
+      alert("لطفاً یک عکس معتبر تا حجم ۱۰ مگابایت انتخاب کن.");
       return;
     }
-
-    const today = new Date().toISOString().slice(0, 10);
 
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       alert("لطفاً تاریخ معتبر انتخاب کن.");
       return;
     }
 
-    if (date > today) {
+    if (date > this.localDate()) {
       alert("تاریخ ثبت نمی‌تواند در آینده باشد.");
       return;
     }
@@ -397,16 +431,14 @@ const PhotosManager = {
     try {
       await this.addPhoto(file, date, note);
 
-      this.selectedPhotos = [];
-
-      alert("عکس با موفقیت در آرشیو ذخیره شد.");
+      alert("عکس ذخیره و بازیابی آن از آرشیو تأیید شد.");
 
       if (typeof showPage === "function") {
         showPage("photos");
       }
     } catch (error) {
       console.error("Photo save error:", error);
-      alert("ذخیره عکس انجام نشد. دوباره تلاش کن.");
+      alert("ذخیره عکس ناموفق بود: " + error.message);
     } finally {
       if (button) {
         button.disabled = false;
@@ -416,7 +448,7 @@ const PhotosManager = {
   },
 
   async handleCompareSubmit(event) {
-    if (!event.target || event.target.id !== "photo-compare-form") return;
+    if (event.target?.id !== "photo-compare-form") return;
 
     event.preventDefault();
 
@@ -429,35 +461,15 @@ const PhotosManager = {
       return;
     }
 
-    this.showPreview(
-      form.elements.first,
-      "compare-image-one",
-      "previewFirstUrl"
-    );
-
-    this.showPreview(
-      form.elements.second,
-      "compare-image-two",
-      "previewSecondUrl"
-    );
-
-    const comparison = document.getElementById("photo-comparison");
-
-    if (comparison) {
-      comparison.scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-      });
-    }
+    this.showPreview(form.elements.first, "compare-image-one", "first");
+    this.showPreview(form.elements.second, "compare-image-two", "second");
   },
 
   clearComparison() {
-    this.clearComparisonUrls();
-
-    ["previewFirstUrl", "previewSecondUrl"].forEach(key => {
-      if (this[key]) {
-        URL.revokeObjectURL(this[key]);
-        this[key] = null;
+    ["first", "second"].forEach(key => {
+      if (this.previewUrls[key]) {
+        URL.revokeObjectURL(this.previewUrls[key]);
+        delete this.previewUrls[key];
       }
     });
 
@@ -466,7 +478,6 @@ const PhotosManager = {
 
     ["compare-image-one", "compare-image-two"].forEach(id => {
       const image = document.getElementById(id);
-
       if (image) {
         image.removeAttribute("src");
         image.style.display = "none";
@@ -479,11 +490,6 @@ const PhotosManager = {
 
     try {
       await this.deletePhoto(id);
-
-      this.selectedPhotos = this.selectedPhotos.filter(
-        photo => photo.id !== Number(id)
-      );
-
       alert("تصویر حذف شد.");
 
       if (typeof showPage === "function") {
@@ -491,32 +497,34 @@ const PhotosManager = {
       }
     } catch (error) {
       console.error("Photo delete error:", error);
-      alert("حذف تصویر انجام نشد.");
+      alert("حذف تصویر انجام نشد: " + error.message);
     }
   }
 };
 
 document.addEventListener("submit", event => {
-  if (event.target.id === "photo-form") {
+  if (event.target?.id === "photo-form") {
     PhotosManager.handleSubmit(event);
   }
 
-  if (event.target.id === "photo-compare-form") {
+  if (event.target?.id === "photo-compare-form") {
     PhotosManager.handleCompareSubmit(event);
   }
 });
 
 document.addEventListener("change", event => {
-  if (event.target.id === "photo-file") {
+  if (event.target?.id === "photo-file") {
     PhotosManager.showPreview(
       event.target,
       "photo-preview",
-      "previewPhotoUrl"
+      "upload"
     );
   }
 });
 
 document.addEventListener("click", event => {
+  if (!(event.target instanceof Element)) return;
+
   const deleteButton = event.target.closest("[data-photo-delete]");
 
   if (deleteButton) {
