@@ -1,132 +1,89 @@
+
 const BodyTracker = {
   key: "bodyTrackMeasurements",
 
+  fields: [
+    {
+      key: "weight",
+      label: "وزن",
+      unit: "کیلوگرم",
+      step: "0.1",
+      max: 500
+    },
+    {
+      key: "height",
+      label: "قد",
+      unit: "سانتی‌متر",
+      step: "0.1",
+      max: 300
+    },
+    {
+      key: "chest",
+      label: "دور سینه",
+      unit: "سانتی‌متر",
+      step: "0.1",
+      max: 300
+    },
+    {
+      key: "waist",
+      label: "دور کمر",
+      unit: "سانتی‌متر",
+      step: "0.1",
+      max: 300
+    },
+    {
+      key: "arm",
+      label: "دور بازو",
+      unit: "سانتی‌متر",
+      step: "0.1",
+      max: 150
+    },
+    {
+      key: "thigh",
+      label: "دور ران",
+      unit: "سانتی‌متر",
+      step: "0.1",
+      max: 200
+    },
+    {
+      key: "shoulder",
+      label: "دور شانه",
+      unit: "سانتی‌متر",
+      step: "0.1",
+      max: 300
+    }
+  ],
+
   getData() {
-    return JSON.parse(localStorage.getItem(this.key) || "[]");
+    try {
+      const data = JSON.parse(
+        localStorage.getItem(this.key) || "[]"
+      );
+
+      if (!Array.isArray(data)) return [];
+
+      return data.filter(record =>
+        record && typeof record === "object" && !Array.isArray(record)
+      );
+    } catch (error) {
+      console.error("Measurement data could not be loaded:", error);
+      return [];
+    }
   },
 
   saveData(data) {
-    localStorage.setItem(this.key, JSON.stringify(data));
-  },
-
-  render() {
-    const records = this.getData();
-    const latest = records.length ? records[records.length - 1] : null;
-
-    const fields = [
-      ["weight", "وزن", "کیلوگرم", "number", "0.1"],
-      ["height", "قد", "سانتی‌متر", "number", "1"],
-      ["chest", "دور سینه", "سانتی‌متر", "0"],
-      ["waist", "دور کمر", "سانتی‌متر", "0"],
-      ["arm", "دور بازو", "سانتی‌متر", "0"],
-      ["thigh", "دور ران", "سانتی‌متر", "0"],
-      ["shoulder", "دور شانه", "سانتی‌متر", "0"]
-    ];
-
-    return `
-      <header class="topbar">
-        <div>
-          <span class="english topbar-caption">BODY MEASUREMENTS</span>
-          <h2>اندازه‌گیری بدن</h2>
-        </div>
-        <div class="avatar">B</div>
-      </header>
-
-      <section class="welcome-card">
-        <div>
-          <span class="english welcome-tag">TRACK YOUR CHANGE</span>
-          <h1>تغییراتت رو<br>ثبت کن.</h1>
-          <p>هر اندازه‌گیری، یک قدم به شناخت بهتر بدنت.</p>
-        </div>
-        <div class="welcome-decoration english">02</div>
-      </section>
-
-      <section class="section-heading">
-        <div>
-          <span class="english section-caption">LATEST RECORD</span>
-          <h2>آخرین وضعیت بدن</h2>
-        </div>
-      </section>
-
-      <section class="stats-grid">
-        ${fields.map(([key, label, unit]) => `
-          <article class="stat-card">
-            <span class="stat-label">${label}</span>
-            <strong class="english">${latest?.[key] || "--"}
-              <small>${unit}</small>
-            </strong>
-          </article>
-        `).join("")}
-      </section>
-
-      <section class="section-heading">
-        <div>
-          <span class="english section-caption">NEW MEASUREMENT</span>
-          <h2>ثبت اندازه‌گیری جدید</h2>
-        </div>
-      </section>
-
-      <section class="empty-card" style="text-align:right">
-        <form id="body-record-form">
-          <div class="stats-grid">
-            ${fields.map(([key, label, unit]) => `
-              <div>
-                <label class="stat-label">${label} (${unit})</label>
-                <input
-                  name="${key}"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="مقدار ${label}"
-                  ${key === "weight" ? "required" : ""}
-                  style="width:100%;padding:12px;margin-top:8px;margin-bottom:16px;border:1px solid var(--border);border-radius:11px;background:#FAF9F6"
-                >
-              </div>
-            `).join("")}
-          </div>
-
-          <label class="stat-label">توضیحات</label>
-          <textarea name="note" rows="3"
-            placeholder="مثلاً وضعیت تمرین یا تغییرات این ماه..."
-            style="width:100%;padding:12px;margin-top:8px;border:1px solid var(--border);border-radius:11px;font:inherit"></textarea>
-
-          <button class="primary-button" type="submit">
-            ذخیره اندازه‌گیری +
-          </button>
-        </form>
-      </section>
-
-      <section class="section-heading">
-        <div>
-          <span class="english section-caption">MEASUREMENT HISTORY</span>
-          <h2>تاریخچه اندازه‌گیری‌ها</h2>
-        </div>
-      </section>
-
-      <section>
-        ${records.length ? [...records].reverse().map(record => `
-          <article class="stat-card" style="margin-bottom:12px">
-            <strong class="english">${record.date}</strong>
-            <p class="stat-note">
-              وزن: ${record.weight || "--"} کیلوگرم
-              · دور بازو: ${record.arm || "--"} سانتی‌متر
-              · دور کمر: ${record.waist || "--"} سانتی‌متر
-            </p>
-            ${record.note ? `<p class="stat-note">${this.escape(record.note)}</p>` : ""}
-          </article>
-        `).join("") : `
-          <div class="empty-card">
-            <div class="empty-icon">📏</div>
-            <h3>هنوز اندازه‌گیری ثبت نکردی</h3>
-            <p>اولین اطلاعات بدنت رو ثبت کن.</p>
-          </div>
-        `}
-      </section>
-    `;
+    try {
+      localStorage.setItem(this.key, JSON.stringify(data));
+      return true;
+    } catch (error) {
+      console.error("Measurement data could not be saved:", error);
+      alert("ذخیره اطلاعات انجام نشد. فضای ذخیره‌سازی مرورگر را بررسی کن.");
+      return false;
+    }
   },
 
   escape(value) {
-    return String(value).replace(/[&<>"']/g, char => ({
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
       "&": "&amp;",
       "<": "&lt;",
       ">": "&gt;",
@@ -135,24 +92,199 @@ const BodyTracker = {
     })[char]);
   },
 
+  formatValue(value) {
+    if (value === null || value === undefined || value === "") {
+      return "--";
+    }
+
+    return this.escape(value);
+  },
+
+  render() {
+    const records = this.getData();
+    const latest = records.length
+      ? records[records.length - 1]
+      : null;
+
+    return `
+      <section class="welcome-card">
+        <div>
+          <span class="eyebrow">TRACK YOUR CHANGE</span>
+          <h2>تغییراتت رو ثبت کن.</h2>
+          <p>
+            هر اندازه‌گیری، یک قدم به شناخت بهتر بدنت.
+            اطلاعاتت رو ثبت کن و روند تغییراتت رو دنبال کن.
+          </p>
+        </div>
+
+        <div class="welcome-decoration">02</div>
+      </section>
+
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">LATEST RECORD</span>
+          <h3>آخرین وضعیت بدن</h3>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        ${this.fields.map(field => {
+          const value = latest
+            ? this.formatValue(latest[field.key])
+            : "--";
+
+          return `
+            <article class="stat-card">
+              <span>${field.label}</span>
+              <strong>
+                ${value}
+                <small>${field.unit}</small>
+              </strong>
+            </article>
+          `;
+        }).join("")}
+      </div>
+
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">NEW MEASUREMENT</span>
+          <h3>ثبت اندازه‌گیری جدید</h3>
+        </div>
+      </div>
+
+      <div class="workout-panel measurement-panel">
+        <form id="body-record-form">
+
+          <div class="form-grid">
+            ${this.fields.map(field => `
+              <label>
+                ${field.label} (${field.unit})
+
+                <input
+                  name="${field.key}"
+                  type="number"
+                  min="0"
+                  max="${field.max}"
+                  step="${field.step}"
+                  placeholder="مقدار ${field.label}"
+                  ${field.key === "weight" ? "required" : ""}
+                />
+              </label>
+            `).join("")}
+          </div>
+
+          <label>
+            توضیحات
+
+            <textarea
+              name="note"
+              rows="3"
+              maxlength="500"
+              placeholder="مثلاً وضعیت تمرین یا تغییرات این ماه..."
+            ></textarea>
+          </label>
+
+          <button class="primary-btn" type="submit">
+            + ذخیره اندازه‌گیری
+          </button>
+
+        </form>
+      </div>
+
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">MEASUREMENT HISTORY</span>
+          <h3>تاریخچه اندازه‌گیری‌ها</h3>
+        </div>
+
+        <span class="muted-text">
+          ${records.length} رکورد ثبت‌شده
+        </span>
+      </div>
+
+      <div class="measurement-history">
+        ${
+          records.length
+            ? [...records].reverse().map(record => `
+              <article class="stat-card measurement-record">
+                <div class="section-heading">
+                  <strong>${this.formatValue(record.date)}</strong>
+                  <span class="muted-text">اندازه‌گیری بدن</span>
+                </div>
+
+                <div class="measurement-record-grid">
+                  ${this.fields.map(field => `
+                    <div>
+                      <span>${field.label}</span>
+                      <strong>
+                        ${this.formatValue(record[field.key])}
+                        <small>${field.unit}</small>
+                      </strong>
+                    </div>
+                  `).join("")}
+                </div>
+
+                ${
+                  record.note
+                    ? `<p class="stat-note">${this.escape(record.note)}</p>`
+                    : ""
+                }
+              </article>
+            `).join("")
+            : `
+              <div class="empty-state">
+                <strong>هنوز اندازه‌گیری ثبت نکردی</strong>
+                <p>اولین اطلاعات بدنت رو ثبت کن تا تاریخچه تغییراتت ساخته بشه.</p>
+              </div>
+            `
+        }
+      </div>
+    `;
+  },
+
   handleSubmit(event) {
     if (event.target.id !== "body-record-form") return;
 
     event.preventDefault();
 
-    const form = new FormData(event.target);
+    const formElement = event.target;
+    const form = new FormData(formElement);
     const record = {};
 
-    ["weight", "height", "chest", "waist", "arm", "thigh", "shoulder"].forEach(key => {
-      record[key] = form.get(key) || "";
-    });
+    for (const field of this.fields) {
+      const rawValue = String(form.get(field.key) ?? "").trim();
 
-    record.note = form.get("note") || "";
+      if (rawValue === "") {
+        if (field.key === "weight") {
+          alert("لطفاً وزن خودت رو وارد کن.");
+          return;
+        }
+
+        record[field.key] = "";
+        continue;
+      }
+
+      const value = Number(rawValue);
+
+      if (
+        !Number.isFinite(value) ||
+        value <= 0 ||
+        value > field.max
+      ) {
+        alert(`مقدار ${field.label} معتبر نیست.`);
+        return;
+      }
+
+      record[field.key] = String(value);
+    }
+
+    record.note = String(form.get("note") ?? "").trim();
     record.date = new Date().toLocaleDateString("fa-IR");
 
     const records = this.getData();
     records.push(record);
-    this.saveData(records);
+
+    if (!this.saveData(records)) return;
 
     if (typeof showPage === "function") {
       showPage("body");
