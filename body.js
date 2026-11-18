@@ -1,5 +1,4 @@
 
-// سیستم پیام‌های موفقیت و خطا در BODY TRACK
 window.showToast = window.showToast || function(message, type = "success") {
   let toast = document.getElementById("body-track-toast");
 
@@ -52,62 +51,18 @@ const BodyTracker = {
   key: "bodyTrackMeasurements",
 
   fields: [
-    {
-      key: "weight",
-      label: "وزن",
-      unit: "کیلوگرم",
-      step: "0.1",
-      max: 500
-    },
-    {
-      key: "height",
-      label: "قد",
-      unit: "سانتی‌متر",
-      step: "0.1",
-      max: 300
-    },
-    {
-      key: "chest",
-      label: "دور سینه",
-      unit: "سانتی‌متر",
-      step: "0.1",
-      max: 300
-    },
-    {
-      key: "waist",
-      label: "دور کمر",
-      unit: "سانتی‌متر",
-      step: "0.1",
-      max: 300
-    },
-    {
-      key: "arm",
-      label: "دور بازو",
-      unit: "سانتی‌متر",
-      step: "0.1",
-      max: 150
-    },
-    {
-      key: "thigh",
-      label: "دور ران",
-      unit: "سانتی‌متر",
-      step: "0.1",
-      max: 200
-    },
-    {
-      key: "shoulder",
-      label: "دور شانه",
-      unit: "سانتی‌متر",
-      step: "0.1",
-      max: 300
-    }
+    { key: "weight", label: "وزن", unit: "کیلوگرم", step: "0.1", max: 500 },
+    { key: "height", label: "قد", unit: "سانتی‌متر", step: "0.1", max: 300 },
+    { key: "chest", label: "دور سینه", unit: "سانتی‌متر", step: "0.1", max: 300 },
+    { key: "waist", label: "دور کمر", unit: "سانتی‌متر", step: "0.1", max: 300 },
+    { key: "arm", label: "دور بازو", unit: "سانتی‌متر", step: "0.1", max: 150 },
+    { key: "thigh", label: "دور ران", unit: "سانتی‌متر", step: "0.1", max: 200 },
+    { key: "shoulder", label: "دور شانه", unit: "سانتی‌متر", step: "0.1", max: 300 }
   ],
 
   getData() {
     try {
-      const data = JSON.parse(
-        localStorage.getItem(this.key) || "[]"
-      );
+      const data = JSON.parse(localStorage.getItem(this.key) || "[]");
 
       if (!Array.isArray(data)) return [];
 
@@ -151,9 +106,7 @@ const BodyTracker = {
 
   render() {
     const records = this.getData();
-    const latest = records.length
-      ? records[records.length - 1]
-      : null;
+    const latest = records.length ? records[records.length - 1] : null;
 
     return `
       <section class="welcome-card">
@@ -165,7 +118,6 @@ const BodyTracker = {
             اطلاعاتت رو ثبت کن و روند تغییراتت رو دنبال کن.
           </p>
         </div>
-
         <div class="welcome-decoration">02</div>
       </section>
 
@@ -178,17 +130,12 @@ const BodyTracker = {
 
       <div class="stats-grid">
         ${this.fields.map(field => {
-          const value = latest
-            ? this.formatValue(latest[field.key])
-            : "--";
+          const value = latest ? this.formatValue(latest[field.key]) : "--";
 
           return `
             <article class="stat-card">
               <span>${field.label}</span>
-              <strong>
-                ${value}
-                <small>${field.unit}</small>
-              </strong>
+              <strong>${value} <small>${field.unit}</small></strong>
             </article>
           `;
         }).join("")}
@@ -203,12 +150,10 @@ const BodyTracker = {
 
       <div class="workout-panel measurement-panel">
         <form id="body-record-form">
-
           <div class="form-grid">
             ${this.fields.map(field => `
               <label>
                 ${field.label} (${field.unit})
-
                 <input
                   name="${field.key}"
                   type="number"
@@ -224,7 +169,6 @@ const BodyTracker = {
 
           <label>
             توضیحات
-
             <textarea
               name="note"
               rows="3"
@@ -236,7 +180,6 @@ const BodyTracker = {
           <button class="primary-btn" type="submit">
             + ذخیره اندازه‌گیری
           </button>
-
         </form>
       </div>
 
@@ -254,32 +197,48 @@ const BodyTracker = {
       <div class="measurement-history">
         ${
           records.length
-            ? [...records].reverse().map(record => `
-              <article class="stat-card measurement-record">
-                <div class="section-heading">
-                  <strong>${this.formatValue(record.date)}</strong>
-                  <span class="muted-text">اندازه‌گیری بدن</span>
-                </div>
-
-                <div class="measurement-record-grid">
-                  ${this.fields.map(field => `
-                    <div>
-                      <span>${field.label}</span>
-                      <strong>
-                        ${this.formatValue(record[field.key])}
-                        <small>${field.unit}</small>
-                      </strong>
+            ? records.map((record, index) => ({ record, index }))
+                .reverse()
+                .map(({ record, index }) => `
+                  <article class="stat-card measurement-record">
+                    <div class="section-heading">
+                      <strong>${this.formatValue(record.date)}</strong>
+                      <button
+                        type="button"
+                        class="delete-measurement-btn"
+                        data-delete-measurement="${index}"
+                        aria-label="حذف این اندازه‌گیری"
+                        title="حذف اندازه‌گیری"
+                        style="
+                          background:#4a2020;
+                          color:white;
+                          border:1px solid #e05b5b;
+                          border-radius:10px;
+                          padding:8px 12px;
+                          cursor:pointer;
+                        "
+                      >🗑️ حذف</button>
                     </div>
-                  `).join("")}
-                </div>
 
-                ${
-                  record.note
-                    ? `<p class="stat-note">${this.escape(record.note)}</p>`
-                    : ""
-                }
-              </article>
-            `).join("")
+                    <div class="measurement-record-grid">
+                      ${this.fields.map(field => `
+                        <div>
+                          <span>${field.label}</span>
+                          <strong>
+                            ${this.formatValue(record[field.key])}
+                            <small>${field.unit}</small>
+                          </strong>
+                        </div>
+                      `).join("")}
+                    </div>
+
+                    ${
+                      record.note
+                        ? `<p class="stat-note">${this.escape(record.note)}</p>`
+                        : ""
+                    }
+                  </article>
+                `).join("")
             : `
               <div class="empty-state">
                 <strong>هنوز اندازه‌گیری ثبت نکردی</strong>
@@ -291,13 +250,40 @@ const BodyTracker = {
     `;
   },
 
+  handleDelete(event) {
+    const button = event.target.closest("[data-delete-measurement]");
+
+    if (!button) return;
+
+    const index = Number(button.dataset.deleteMeasurement);
+
+    if (!Number.isInteger(index)) return;
+
+    const records = this.getData();
+
+    if (index < 0 || index >= records.length) return;
+
+    if (!confirm("آیا مطمئنی می‌خواهی این اندازه‌گیری را حذف کنی؟")) {
+      return;
+    }
+
+    records.splice(index, 1);
+
+    if (!this.saveData(records)) return;
+
+    if (typeof showPage === "function") {
+      showPage("body");
+    }
+
+    window.showToast("اندازه‌گیری با موفقیت حذف شد! ✓");
+  },
+
   handleSubmit(event) {
     if (event.target.id !== "body-record-form") return;
 
     event.preventDefault();
 
-    const formElement = event.target;
-    const form = new FormData(formElement);
+    const form = new FormData(event.target);
     const record = {};
 
     for (const field of this.fields) {
@@ -315,11 +301,7 @@ const BodyTracker = {
 
       const value = Number(rawValue);
 
-      if (
-        !Number.isFinite(value) ||
-        value <= 0 ||
-        value > field.max
-      ) {
+      if (!Number.isFinite(value) || value <= 0 || value > field.max) {
         alert(`مقدار ${field.label} معتبر نیست.`);
         return;
       }
@@ -335,16 +317,19 @@ const BodyTracker = {
 
     if (!this.saveData(records)) return;
 
-    if (typeof window.showToast === "function") {
-      window.showToast("اندازه‌گیری با موفقیت ذخیره شد! ✓");
-    }
-
     if (typeof showPage === "function") {
       showPage("body");
     }
+
+    window.showToast("اندازه‌گیری با موفقیت ذخیره شد! ✓");
   }
 };
 
+
 document.addEventListener("submit", event => {
   BodyTracker.handleSubmit(event);
+});
+
+document.addEventListener("click", event => {
+  BodyTracker.handleDelete(event);
 });
