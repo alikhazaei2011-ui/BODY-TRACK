@@ -2137,3 +2137,63 @@ input[type="file"] {
     flex: 1;
   }
 }
+
+/* Photo comparison result */
+.photo-comparison-result {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid rgba(0, 217, 149, .2);
+  border-radius: 20px;
+  background: rgba(0, 217, 149, .045);
+}
+
+.photo-comparison-result[hidden] {
+  display: none !important;
+}
+
+.photo-comparison-result h3 {
+  margin: 0 0 18px;
+}
+
+.comparison-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.comparison-result-grid > div {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, .2);
+}
+
+.comparison-result-grid span {
+  display: block;
+  padding: 12px;
+  text-align: center;
+  color: #8BFFCB;
+  font-weight: 700;
+}
+
+.comparison-result-grid img {
+  display: block;
+  width: 100%;
+  height: 260px;
+  object-fit: contain;
+  background: #07110D;
+}
+
+@media (max-width: 480px) {
+  .comparison-result-grid {
+    gap: 8px;
+  }
+
+  .comparison-result-grid img {
+    height: 190px;
+  }
+
+  .photo-comparison-result {
+    padding: 12px;
+  }
+}
