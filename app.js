@@ -6,13 +6,51 @@ const DAYS = [
   "چهارشنبه", "پنجشنبه", "جمعه"
 ];
 
+const STORAGE_KEY = "bodyTrackWorkouts";
+
 let selectedDay = DAYS[0];
-let workoutData = JSON.parse(
-  localStorage.getItem("bodyTrackWorkouts") || "{}"
-);
+
+function loadWorkouts() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+      return {};
+    }
+
+    const cleaned = {};
+
+    DAYS.forEach(day => {
+      if (Array.isArray(saved[day])) {
+        cleaned[day] = saved[day].filter(item =>
+          item && typeof item === "object"
+        ).map(item => ({
+          exercise: String(item.exercise ?? ""),
+          sets: String(item.sets ?? ""),
+          reps: String(item.reps ?? ""),
+          weight: String(item.weight ?? ""),
+          note: String(item.note ?? ""),
+          completed: Boolean(item.completed)
+        }));
+      }
+    });
+
+    return cleaned;
+  } catch (error) {
+    console.error("Workout data could not be loaded:", error);
+    return {};
+  }
+}
+
+let workoutData = loadWorkouts();
 
 function saveWorkouts() {
-  localStorage.setItem("bodyTrackWorkouts", JSON.stringify(workoutData));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(workoutData));
+  } catch (error) {
+    console.error("Workout data could not be saved:", error);
+    alert("ذخیره اطلاعات انجام نشد. فضای ذخیره‌سازی مرورگر را بررسی کن.");
+  }
 }
 
 function escapeHTML(value) {
@@ -47,10 +85,16 @@ function getPageTitle(page) {
     profile: "پروفایل من",
     backup: "پشتیبان‌گیری"
   };
+
   return titles[page] || "BODY TRACK";
 }
 
 function renderLayout(content, activePage = "home") {
+  if (!app) {
+    console.error("App container not found.");
+    return;
+  }
+
   app.innerHTML = `
     <div class="app-shell">
 
@@ -64,19 +108,23 @@ function renderLayout(content, activePage = "home") {
         </div>
 
         <nav class="side-nav">
-          <button data-page="home" class="${activePage === "home" ? "active" : ""}">
+          <button type="button" data-page="home" class="${activePage === "home" ? "active" : ""}">
             ${icons.home} خانه
           </button>
-          <button data-page="workout" class="${activePage === "workout" ? "active" : ""}">
+
+          <button type="button" data-page="workout" class="${activePage === "workout" ? "active" : ""}">
             ${icons.workout} برنامه تمرینی
           </button>
-          <button data-page="body" class="${activePage === "body" ? "active" : ""}">
+
+          <button type="button" data-page="body" class="${activePage === "body" ? "active" : ""}">
             ${icons.body} اندازه‌های بدن
           </button>
-          <button data-page="progress" class="${activePage === "progress" ? "active" : ""}">
+
+          <button type="button" data-page="progress" class="${activePage === "progress" ? "active" : ""}">
             ${icons.progress} پیشرفت من
           </button>
-          <button data-open-more>
+
+          <button type="button" data-open-more>
             ${icons.more} بخش‌های بیشتر
           </button>
         </nav>
@@ -92,7 +140,10 @@ function renderLayout(content, activePage = "home") {
             <span class="topbar-label">FITNESS TRACKER</span>
             <h2>${getPageTitle(activePage)}</h2>
           </div>
-          <div class="topbar-date">${new Date().toLocaleDateString("fa-IR")}</div>
+
+          <div class="topbar-date">
+            ${new Date().toLocaleDateString("fa-IR")}
+          </div>
         </header>
 
         <section class="page-content">
@@ -101,57 +152,88 @@ function renderLayout(content, activePage = "home") {
       </main>
 
       <nav class="mobile-nav">
-        <button data-page="home" class="${activePage === "home" ? "active" : ""}">
-          ${icons.home}<small>خانه</small>
+        <button type="button" data-page="home" class="${activePage === "home" ? "active" : ""}">
+          ${icons.home}
+          <small>خانه</small>
         </button>
-        <button data-page="workout" class="${activePage === "workout" ? "active" : ""}">
-          ${icons.workout}<small>تمرین</small>
+
+        <button type="button" data-page="workout" class="${activePage === "workout" ? "active" : ""}">
+          ${icons.workout}
+          <small>تمرین</small>
         </button>
-        <button data-page="body" class="${activePage === "body" ? "active" : ""}">
-          ${icons.body}<small>اندازه‌ها</small>
+
+        <button type="button" data-page="body" class="${activePage === "body" ? "active" : ""}">
+          ${icons.body}
+          <small>اندازه‌ها</small>
         </button>
-        <button data-page="progress" class="${activePage === "progress" ? "active" : ""}">
-          ${icons.progress}<small>پیشرفت</small>
+
+        <button type="button" data-page="progress" class="${activePage === "progress" ? "active" : ""}">
+          ${icons.progress}
+          <small>پیشرفت</small>
         </button>
-        <button data-open-more class="more-nav-button">
-          ${icons.more}<small>بیشتر</small>
+
+        <button type="button" data-open-more class="more-nav-button">
+          ${icons.more}
+          <small>بیشتر</small>
         </button>
       </nav>
 
       <div class="more-overlay" id="more-overlay" aria-hidden="true">
-        <section class="more-modal">
+        <section
+          class="more-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="more-modal-title"
+        >
           <header class="more-modal-header">
             <div>
               <span class="eyebrow">MORE OPTIONS</span>
-              <h2>بخش‌های بیشتر</h2>
+              <h2 id="more-modal-title">بخش‌های بیشتر</h2>
               <p>به ابزارهای تکمیلی BODY TRACK دسترسی پیدا کن.</p>
             </div>
-            <button class="more-close" data-close-more aria-label="بستن">
+
+            <button
+              type="button"
+              class="more-close"
+              data-close-more
+              aria-label="بستن"
+            >
               ${icons.close}
             </button>
           </header>
 
           <div class="more-options">
-            <button class="more-option" data-page="photos">
+            <button type="button" class="more-option" data-page="photos">
               <span class="more-option-icon">${icons.photos}</span>
-              <span><strong>گالری تصاویر بدن</strong><small>ثبت و مقایسه عکس‌های تغییرات بدن</small></span>
+              <span>
+                <strong>گالری تصاویر بدن</strong>
+                <small>ثبت و مقایسه عکس‌های تغییرات بدن</small>
+              </span>
               <span class="more-arrow">←</span>
             </button>
 
-            <button class="more-option" data-page="profile">
+            <button type="button" class="more-option" data-page="profile">
               <span class="more-option-icon">${icons.profile}</span>
-              <span><strong>پروفایل شخصی</strong><small>مدیریت اطلاعات و هدف‌های شخصی</small></span>
+              <span>
+                <strong>پروفایل شخصی</strong>
+                <small>مدیریت اطلاعات و هدف‌های شخصی</small>
+              </span>
               <span class="more-arrow">←</span>
             </button>
 
-            <button class="more-option" data-page="backup">
+            <button type="button" class="more-option" data-page="backup">
               <span class="more-option-icon">${icons.backup}</span>
-              <span><strong>پشتیبان‌گیری</strong><small>خروجی گرفتن و بازیابی اطلاعات</small></span>
+              <span>
+                <strong>پشتیبان‌گیری</strong>
+                <small>خروجی گرفتن و بازیابی اطلاعات</small>
+              </span>
               <span class="more-arrow">←</span>
             </button>
           </div>
 
-          <p class="more-modal-footer">BODY TRACK · YOUR BODY. YOUR JOURNEY.</p>
+          <p class="more-modal-footer">
+            BODY TRACK · YOUR BODY. YOUR JOURNEY.
+          </p>
         </section>
       </div>
     </div>
@@ -160,15 +242,22 @@ function renderLayout(content, activePage = "home") {
 
 function openMore() {
   const overlay = document.getElementById("more-overlay");
+
   if (!overlay) return;
+
   overlay.classList.add("visible");
   overlay.setAttribute("aria-hidden", "false");
   document.body.classList.add("modal-open");
+
+  const closeButton = overlay.querySelector("[data-close-more]");
+  closeButton?.focus();
 }
 
 function closeMore() {
   const overlay = document.getElementById("more-overlay");
+
   if (!overlay) return;
+
   overlay.classList.remove("visible");
   overlay.setAttribute("aria-hidden", "true");
   document.body.classList.remove("modal-open");
@@ -177,8 +266,15 @@ function closeMore() {
 function renderHome() {
   const allExercises = Object.values(workoutData).flat();
   const totalExercises = allExercises.length;
-  const completedExercises = allExercises.filter(item => item.completed).length;
-  const latestMeasurement = BodyTracker.getData().slice(-1)[0];
+
+  const completedExercises = allExercises.filter(
+    item => item.completed
+  ).length;
+
+  const measurements = BodyTracker.getData();
+  const latestMeasurement = measurements.length
+    ? measurements[measurements.length - 1]
+    : null;
 
   const content = `
     <section class="welcome-card">
@@ -186,8 +282,12 @@ function renderHome() {
         <span class="eyebrow">YOUR JOURNEY STARTS HERE</span>
         <h2>هر روز، یک قدم قوی‌تر.</h2>
         <p>تمرین‌ها و تغییرات بدنت رو ثبت کن و مسیر پیشرفتت رو ببین.</p>
-        <button class="primary-btn" data-page="workout">مشاهده برنامه تمرینی</button>
+
+        <button type="button" class="primary-btn" data-page="workout">
+          مشاهده برنامه تمرینی
+        </button>
       </div>
+
       <div class="welcome-decoration">BT</div>
     </section>
 
@@ -204,14 +304,16 @@ function renderHome() {
         <strong>${totalExercises}</strong>
         <small>تمرین ثبت‌شده</small>
       </article>
+
       <article class="stat-card">
         <span>تمرین‌های انجام‌شده</span>
         <strong>${completedExercises}</strong>
         <small>تکمیل‌شده</small>
       </article>
+
       <article class="stat-card">
         <span>وزن آخر</span>
-        <strong>${latestMeasurement?.weight ?? "—"}</strong>
+        <strong>${escapeHTML(latestMeasurement?.weight ?? "—")}</strong>
         <small>${latestMeasurement ? "کیلوگرم" : "هنوز ثبت نشده"}</small>
       </article>
     </div>
@@ -229,12 +331,17 @@ function renderWorkout() {
         <span class="eyebrow">WEEKLY PLAN</span>
         <h3>برنامه هفتگی تو</h3>
       </div>
+
       <span class="muted-text">تمرین‌هایت را مدیریت کن</span>
     </div>
 
     <div class="days-grid">
       ${DAYS.map(day => `
-        <button class="day-card ${selectedDay === day ? "selected" : ""}" data-day="${day}">
+        <button
+          type="button"
+          class="day-card ${selectedDay === day ? "selected" : ""}"
+          data-day="${day}"
+        >
           ${day}
         </button>
       `).join("")}
@@ -246,54 +353,128 @@ function renderWorkout() {
           <span class="eyebrow">SELECTED DAY</span>
           <h3>${selectedDay}</h3>
         </div>
+
         <span class="muted-text">${dayExercises.length} تمرین</span>
       </div>
 
       <form id="exercise-form">
         <div class="form-grid">
-          <label>نام حرکت
-            <input name="exercise" type="text" placeholder="مثلاً جلو بازو" required />
+          <label>
+            نام حرکت
+            <input
+              name="exercise"
+              type="text"
+              maxlength="80"
+              placeholder="مثلاً جلو بازو"
+              required
+            />
           </label>
-          <label>تعداد ست
-            <input name="sets" type="number" min="1" placeholder="3" required />
+
+          <label>
+            تعداد ست
+            <input
+              name="sets"
+              type="number"
+              min="1"
+              max="100"
+              step="1"
+              placeholder="3"
+              required
+            />
           </label>
-          <label>تعداد تکرار
-            <input name="reps" type="number" min="1" placeholder="12" required />
+
+          <label>
+            تعداد تکرار
+            <input
+              name="reps"
+              type="number"
+              min="1"
+              max="1000"
+              step="1"
+              placeholder="12"
+              required
+            />
           </label>
-          <label>وزن (کیلوگرم)
-            <input name="weight" type="number" min="0" step="0.5" placeholder="اختیاری" />
+
+          <label>
+            وزن (کیلوگرم)
+            <input
+              name="weight"
+              type="number"
+              min="0"
+              max="1000"
+              step="0.5"
+              placeholder="اختیاری"
+            />
           </label>
         </div>
 
-        <label>توضیحات
-          <textarea name="note" placeholder="نکته یا توضیح تمرین..."></textarea>
+        <label>
+          توضیحات
+          <textarea
+            name="note"
+            maxlength="500"
+            placeholder="نکته یا توضیح تمرین..."
+          ></textarea>
         </label>
 
-        <button type="submit" class="primary-btn">+ افزودن تمرین</button>
+        <button type="submit" class="primary-btn">
+          + افزودن تمرین
+        </button>
       </form>
 
       <div class="exercise-list">
-        ${dayExercises.length ? dayExercises.map((item, index) => `
-          <article class="exercise-card ${item.completed ? "completed" : ""}">
-            <div class="exercise-info">
-              <strong>${escapeHTML(item.exercise)}</strong>
-              <span>${item.sets} ست × ${item.reps} تکرار</span>
-              ${item.weight ? `<small>وزن: ${item.weight} کیلوگرم</small>` : ""}
-              ${item.note ? `<small>${escapeHTML(item.note)}</small>` : ""}
-            </div>
-            <div class="exercise-actions">
-              <button data-complete="${index}" class="complete-btn">
-                ${item.completed ? "انجام شد ✓" : "تکمیل"}
-              </button>
-              <button data-delete="${index}" class="delete-btn">حذف</button>
-            </div>
-          </article>
-        `).join("") : `
-          <div class="empty-state">
-            <strong>هنوز تمرینی ثبت نشده</strong>
-            <p>اولین حرکت این روز را اضافه کن.</p>
-          </div>
-        `}
+        ${
+          dayExercises.length
+            ? dayExercises.map((item, index) => `
+              <article class="exercise-card ${item.completed ? "completed" : ""}">
+                <div class="exercise-info">
+                  <strong>${escapeHTML(item.exercise)}</strong>
+
+                  <span>
+                    ${escapeHTML(item.sets)} ست ×
+                    ${escapeHTML(item.reps)} تکرار
+                  </span>
+
+                  ${
+                    item.weight !== ""
+                      ? `<small>وزن: ${escapeHTML(item.weight)} کیلوگرم</small>`
+                      : ""
+                  }
+
+                  ${
+                    item.note
+                      ? `<small>${escapeHTML(item.note)}</small>`
+                      : ""
+                  }
+                </div>
+
+                <div class="exercise-actions">
+                  <button
+                    type="button"
+                    data-complete="${index}"
+                    class="complete-btn"
+                  >
+                    ${item.completed ? "انجام شد ✓" : "تکمیل"}
+                  </button>
+
+                  <button
+                    type="button"
+                    data-delete="${index}"
+                    class="delete-btn"
+                  >
+                    حذف
+                  </button>
+                </div>
+              </article>
+            `).join("")
+            : `
+              <div class="empty-state">
+                <strong>هنوز تمرینی ثبت نشده</strong>
+                <p>اولین حرکت این روز را اضافه کن.</p>
+              </div>
+            `
+        }
       </div>
     </div>
   `;
@@ -304,107 +485,180 @@ function renderWorkout() {
 function showPage(page) {
   closeMore();
 
-  if (page === "home") {
-    renderHome();
-  } else if (page === "workout") {
-    renderWorkout();
-  } else if (page === "body") {
-    renderLayout(BodyTracker.render(), "body");
-  } else if (page === "progress") {
-    renderLayout(ProgressTracker.render(), "progress");
-  } else if (page === "profile") {
-    renderLayout(ProfileManager.render(), "profile");
-  } else if (page === "backup") {
-    renderLayout(BackupManager.render(), "backup");
-  } else if (page === "photos") {
-    PhotosManager.render().then(content => {
-      renderLayout(content, "photos");
-    }).catch(error => {
-      console.error("Photos page error:", error);
-      renderLayout(`
-        <div class="empty-state">
-          <strong>بارگذاری تصاویر ممکن نشد</strong>
-          <p>لطفاً صفحه را دوباره باز کن.</p>
-        </div>
-      `, "photos");
-    });
+  switch (page) {
+    case "home":
+      renderHome();
+      break;
+
+    case "workout":
+      renderWorkout();
+      break;
+
+    case "body":
+      renderLayout(BodyTracker.render(), "body");
+      break;
+
+    case "progress":
+      renderLayout(ProgressTracker.render(), "progress");
+      break;
+
+    case "profile":
+      renderLayout(ProfileManager.render(), "profile");
+      break;
+
+    case "backup":
+      renderLayout(BackupManager.render(), "backup");
+      break;
+
+    case "photos":
+      PhotosManager.render()
+        .then(content => {
+          renderLayout(content, "photos");
+        })
+        .catch(error => {
+          console.error("Photos page error:", error);
+
+          renderLayout(`
+            <div class="empty-state">
+              <strong>بارگذاری تصاویر ممکن نشد</strong>
+              <p>لطفاً صفحه را دوباره باز کن.</p>
+            </div>
+          `, "photos");
+        });
+      break;
+
+    default:
+      renderHome();
   }
 }
 
 document.addEventListener("click", event => {
-  if (event.target.closest("[data-open-more]")) {
+  const target = event.target;
+
+  if (!(target instanceof Element)) return;
+
+  if (target.closest("[data-open-more]")) {
     openMore();
     return;
   }
 
-  if (event.target.closest("[data-close-more]")) {
+  if (target.closest("[data-close-more]")) {
     closeMore();
     return;
   }
 
-  if (event.target.id === "more-overlay") {
+  if (target.id === "more-overlay") {
     closeMore();
     return;
   }
 
-  const pageButton = event.target.closest("[data-page]");
+  const pageButton = target.closest("[data-page]");
+
   if (pageButton) {
     showPage(pageButton.dataset.page);
     return;
   }
 
-  const dayButton = event.target.closest("[data-day]");
+  const dayButton = target.closest("[data-day]");
+
   if (dayButton) {
     selectedDay = dayButton.dataset.day;
     renderWorkout();
     return;
   }
 
-  const completeButton = event.target.closest("[data-complete]");
+  const completeButton = target.closest("[data-complete]");
+
   if (completeButton) {
     const index = Number(completeButton.dataset.complete);
-    workoutData[selectedDay][index].completed =
-      !workoutData[selectedDay][index].completed;
+    const exercises = workoutData[selectedDay] || [];
+
+    if (!Number.isInteger(index) || !exercises[index]) return;
+
+    exercises[index].completed = !exercises[index].completed;
+
     saveWorkouts();
     renderWorkout();
     return;
   }
 
-  const deleteButton = event.target.closest("[data-delete]");
+  const deleteButton = target.closest("[data-delete]");
+
   if (deleteButton) {
     const index = Number(deleteButton.dataset.delete);
-    workoutData[selectedDay].splice(index, 1);
+    const exercises = workoutData[selectedDay] || [];
+
+    if (!Number.isInteger(index) || !exercises[index]) return;
+
+    exercises.splice(index, 1);
+
     saveWorkouts();
     renderWorkout();
   }
 });
 
 document.addEventListener("submit", event => {
-  if (event.target.id === "exercise-form") {
-    event.preventDefault();
+  if (event.target.id !== "exercise-form") return;
 
-    const formData = new FormData(event.target);
-    const exercise = {
-      exercise: formData.get("exercise").trim(),
-      sets: formData.get("sets"),
-      reps: formData.get("reps"),
-      weight: formData.get("weight"),
-      note: formData.get("note").trim(),
-      completed: false
-    };
+  event.preventDefault();
 
-    if (!workoutData[selectedDay]) {
-      workoutData[selectedDay] = [];
-    }
+  const form = event.target;
+  const formData = new FormData(form);
 
-    workoutData[selectedDay].push(exercise);
-    saveWorkouts();
-    renderWorkout();
+  const exerciseName = String(formData.get("exercise") || "").trim();
+  const sets = Number(formData.get("sets"));
+  const reps = Number(formData.get("reps"));
+  const weightValue = String(formData.get("weight") || "").trim();
+  const note = String(formData.get("note") || "").trim();
+
+  if (!exerciseName) {
+    alert("لطفاً نام حرکت را وارد کن.");
+    return;
   }
+
+  if (!Number.isInteger(sets) || sets < 1 || sets > 100) {
+    alert("تعداد ست باید عددی بین ۱ تا ۱۰۰ باشد.");
+    return;
+  }
+
+  if (!Number.isInteger(reps) || reps < 1 || reps > 1000) {
+    alert("تعداد تکرار باید عددی بین ۱ تا ۱۰۰۰ باشد.");
+    return;
+  }
+
+  if (
+    weightValue !== "" &&
+    (!Number.isFinite(Number(weightValue)) ||
+      Number(weightValue) < 0 ||
+      Number(weightValue) > 1000)
+  ) {
+    alert("وزن واردشده معتبر نیست.");
+    return;
+  }
+
+  const exercise = {
+    exercise: exerciseName,
+    sets: String(sets),
+    reps: String(reps),
+    weight: weightValue,
+    note,
+    completed: false
+  };
+
+  if (!workoutData[selectedDay]) {
+    workoutData[selectedDay] = [];
+  }
+
+  workoutData[selectedDay].push(exercise);
+
+  saveWorkouts();
+  renderWorkout();
 });
 
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape") closeMore();
+  if (event.key === "Escape") {
+    closeMore();
+  }
 });
 
 renderHome();
