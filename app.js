@@ -71,8 +71,7 @@ const icons = {
   more: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
   photos: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>',
   profile: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2z"/></svg>',
-  backup: '<svg viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 17v4h16v-4"/></svg>',
-  close: '<svg viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></svg>'
+  backup: '<svg viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 17v4h16v-4"/></svg>'
 };
 
 function getPageTitle(page) {
@@ -83,7 +82,8 @@ function getPageTitle(page) {
     progress: "گزارش پیشرفت",
     photos: "گالری تصاویر بدن",
     profile: "پروفایل من",
-    backup: "پشتیبان‌گیری"
+    backup: "پشتیبان‌گیری",
+    more: "بخش‌های بیشتر"
   };
 
   return titles[page] || "BODY TRACK";
@@ -124,7 +124,7 @@ function renderLayout(content, activePage = "home") {
             ${icons.progress} پیشرفت من
           </button>
 
-          <button type="button" data-open-more>
+          <button type="button" data-page="more" class="${activePage === "more" ? "active" : ""}">
             ${icons.more} بخش‌های بیشتر
           </button>
         </nav>
@@ -172,95 +172,95 @@ function renderLayout(content, activePage = "home") {
           <small>پیشرفت</small>
         </button>
 
-        <button type="button" data-open-more class="more-nav-button">
+        <button type="button" data-page="more" class="${activePage === "more" ? "active" : ""}">
           ${icons.more}
           <small>بیشتر</small>
         </button>
       </nav>
 
-      <div class="more-overlay" id="more-overlay" aria-hidden="true">
-        <section
-          class="more-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="more-modal-title"
-        >
-          <header class="more-modal-header">
-            <div>
-              <span class="eyebrow">MORE OPTIONS</span>
-              <h2 id="more-modal-title">بخش‌های بیشتر</h2>
-              <p>به ابزارهای تکمیلی BODY TRACK دسترسی پیدا کن.</p>
-            </div>
-
-            <button
-              type="button"
-              class="more-close"
-              data-close-more
-              aria-label="بستن"
-            >
-              ${icons.close}
-            </button>
-          </header>
-
-          <div class="more-options">
-            <button type="button" class="more-option" data-page="photos">
-              <span class="more-option-icon">${icons.photos}</span>
-              <span>
-                <strong>گالری تصاویر بدن</strong>
-                <small>ثبت و مقایسه عکس‌های تغییرات بدن</small>
-              </span>
-              <span class="more-arrow">←</span>
-            </button>
-
-            <button type="button" class="more-option" data-page="profile">
-              <span class="more-option-icon">${icons.profile}</span>
-              <span>
-                <strong>پروفایل شخصی</strong>
-                <small>مدیریت اطلاعات و هدف‌های شخصی</small>
-              </span>
-              <span class="more-arrow">←</span>
-            </button>
-
-            <button type="button" class="more-option" data-page="backup">
-              <span class="more-option-icon">${icons.backup}</span>
-              <span>
-                <strong>پشتیبان‌گیری</strong>
-                <small>خروجی گرفتن و بازیابی اطلاعات</small>
-              </span>
-              <span class="more-arrow">←</span>
-            </button>
-          </div>
-
-          <p class="more-modal-footer">
-            BODY TRACK · YOUR BODY. YOUR JOURNEY.
-          </p>
-        </section>
-      </div>
     </div>
   `;
 }
 
-function openMore() {
-  const overlay = document.getElementById("more-overlay");
+function renderMore() {
+  const content = `
+    <section class="more-page">
 
-  if (!overlay) return;
+      <div class="more-page-intro">
+        <span class="eyebrow">BODY TRACK TOOLS</span>
+        <h2>بخش‌های بیشتر</h2>
+        <p>
+          ابزارهای تکمیلی برای مدیریت اطلاعات و مسیر تناسب اندامت.
+        </p>
+      </div>
 
-  overlay.classList.add("visible");
-  overlay.setAttribute("aria-hidden", "false");
-  document.body.classList.add("modal-open");
+      <div class="more-page-grid">
 
-  const closeButton = overlay.querySelector("[data-close-more]");
-  closeButton?.focus();
-}
+        <button
+          type="button"
+          class="more-page-card"
+          data-page="photos"
+        >
+          <span class="more-page-icon">
+            ${icons.photos}
+          </span>
 
-function closeMore() {
-  const overlay = document.getElementById("more-overlay");
+          <strong>گالری تصاویر بدن</strong>
 
-  if (!overlay) return;
+          <small>
+            ثبت و مقایسه عکس‌های تغییرات بدن
+          </small>
 
-  overlay.classList.remove("visible");
-  overlay.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("modal-open");
+          <span class="more-page-arrow">←</span>
+        </button>
+
+        <button
+          type="button"
+          class="more-page-card"
+          data-page="profile"
+        >
+          <span class="more-page-icon">
+            ${icons.profile}
+          </span>
+
+          <strong>پروفایل شخصی</strong>
+
+          <small>
+            مدیریت اطلاعات و هدف‌های شخصی
+          </small>
+
+          <span class="more-page-arrow">←</span>
+        </button>
+
+        <button
+          type="button"
+          class="more-page-card"
+          data-page="backup"
+        >
+          <span class="more-page-icon">
+            ${icons.backup}
+          </span>
+
+          <strong>پشتیبان‌گیری</strong>
+
+          <small>
+            خروجی گرفتن و بازیابی اطلاعات
+          </small>
+
+          <span class="more-page-arrow">←</span>
+        </button>
+
+      </div>
+
+      <div class="more-page-footer">
+        <span class="eyebrow">YOUR BODY. YOUR JOURNEY.</span>
+        <strong>BODY TRACK</strong>
+      </div>
+
+    </section>
+  `;
+
+  renderLayout(content, "more");
 }
 
 function renderHome() {
@@ -483,8 +483,6 @@ function renderWorkout() {
 }
 
 function showPage(page) {
-  closeMore();
-
   switch (page) {
     case "home":
       renderHome();
@@ -508,6 +506,10 @@ function showPage(page) {
 
     case "backup":
       renderLayout(BackupManager.render(), "backup");
+      break;
+
+    case "more":
+      renderMore();
       break;
 
     case "photos":
@@ -536,21 +538,6 @@ document.addEventListener("click", event => {
   const target = event.target;
 
   if (!(target instanceof Element)) return;
-
-  if (target.closest("[data-open-more]")) {
-    openMore();
-    return;
-  }
-
-  if (target.closest("[data-close-more]")) {
-    closeMore();
-    return;
-  }
-
-  if (target.id === "more-overlay") {
-    closeMore();
-    return;
-  }
 
   const pageButton = target.closest("[data-page]");
 
@@ -653,12 +640,6 @@ document.addEventListener("submit", event => {
 
   saveWorkouts();
   renderWorkout();
-});
-
-document.addEventListener("keydown", event => {
-  if (event.key === "Escape") {
-    closeMore();
-  }
 });
 
 renderHome();
