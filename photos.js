@@ -5,6 +5,7 @@ const PhotosManager = {
   db: null,
   objectUrls: [],
   previewUrls: {},
+  pendingUpload: null,
   pendingDeleteId: null,
   toastTimer: null,
 
@@ -53,9 +54,9 @@ const PhotosManager = {
       };
 
       request.onerror = () => reject(request.error);
-      request.onblocked = () => {
-        reject(new Error("دسترسی به آرشیو مسدود شده است."));
-      };
+      request.onblocked = () => reject(
+        new Error("دسترسی به آرشیو مسدود شده است.")
+      );
     });
   },
 
@@ -69,11 +70,9 @@ const PhotosManager = {
 
         request.onsuccess = () => {
           const result = request.result || [];
-
           result.sort((a, b) =>
             String(b.date || "").localeCompare(String(a.date || ""))
           );
-
           resolve(result);
         };
 
@@ -107,34 +106,28 @@ const PhotosManager = {
       file.size <= 10 * 1024 * 1024;
   },
 
-  async addPhoto(file, date, note) {
-    if (!this.isValidImage(file)) {
-      throw new Error("فایل انتخاب‌شده تصویر معتبر نیست.");
-    }
-
-    // Store image bytes instead of Blob.
-    const imageBytes = await file.arrayBuffer();
-
-    if (!imageBytes || imageBytes.byteLength === 0) {
-      throw new Error("خواندن اطلاعات تصویر ناموفق بود.");
+  async addPhoto(imageBytes, imageType, date, note) {
+    if (
+      !(imageBytes instanceof ArrayBuffer) ||
+      imageBytes.byteLength === 0
+    ) {
+      throw new Error("اطلاعات تصویر در دسترس نیست. دوباره عکس را انتخاب کن.");
     }
 
     const db = await this.openDB();
 
     const id = await new Promise((resolve, reject) => {
-      let tx;
-      let photoId = null;
-
       try {
-        tx = db.transaction(this.storeName, "readwrite");
-
+        const tx = db.transaction(this.storeName, "readwrite");
         const request = tx.objectStore(this.storeName).add({
           imageBytes,
-          imageType: file.type,
+          imageType,
           date,
           note,
           createdAt: new Date().toISOString()
         });
+
+        let photoId = null;
 
         request.onsuccess = () => {
           photoId = request.result;
@@ -149,7 +142,9 @@ const PhotosManager = {
         };
 
         tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error || new Error("ذخیره لغو شد."));
+        tx.onabort = () => reject(
+          tx.error || new Error("ذخیره تصویر لغو شد.")
+        );
       } catch (error) {
         reject(error);
       }
@@ -169,23 +164,25 @@ const PhotosManager = {
   },
 
   async getImageBlob(photo) {
-    // Support older records stored as Blob.
     if (photo.image instanceof Blob) {
       return photo.image;
     }
 
-    // Support new ArrayBuffer records.
     if (photo.imageBytes instanceof ArrayBuffer) {
       return new Blob([photo.imageBytes], {
         type: photo.imageType || "image/jpeg"
       });
     }
 
-    // Support typed arrays if encountered.
     if (ArrayBuffer.isView(photo.imageBytes)) {
       return new Blob([photo.imageBytes], {
         type: photo.imageType || "image/jpeg"
       });
+    }
+
+    if (typeof photo.imageData === "string") {
+      const response = await fetch(photo.imageData);
+      return await response.blob();
     }
 
     throw new Error("اطلاعات تصویر معتبر نیست.");
@@ -206,7 +203,6 @@ const PhotosManager = {
     Object.values(this.previewUrls).forEach(url => {
       URL.revokeObjectURL(url);
     });
-
     this.previewUrls = {};
   },
 
@@ -276,9 +272,7 @@ const PhotosManager = {
 
   closeDeleteDialog() {
     const modal = document.getElementById("photo-delete-modal");
-
     if (modal) modal.classList.remove("active");
-
     this.pendingDeleteId = null;
   },
 
@@ -297,7 +291,7 @@ const PhotosManager = {
       }
     } catch (error) {
       console.error("Photo delete error:", error);
-      this.notify("حذف تصویر انجام نشد.", "error");
+      this.notify("حذف تصویر انجام نشد: " + error.message, "error");
     }
   },
 
@@ -332,22 +326,13 @@ const PhotosManager = {
 
             return `
               <article class="photo-card">
-                <img
-                  src="${imageUrl}"
-                  alt="تصویر ثبت‌شده"
-                  loading="lazy"
-                />
-
+                <img src="${imageUrl}" alt="تصویر ثبت‌شده" loading="lazy" />
                 <div class="photo-card-info">
                   <strong>${this.escape(photo.date)}</strong>
                   <p>${this.escape(photo.note || "بدون توضیحات")}</p>
-
                   <div class="photo-actions">
-                    <button
-                      type="button"
-                      class="delete-btn"
-                      data-photo-delete="${Number(photo.id)}"
-                    >
+                    <button type="button" class="delete-btn"
+                      data-photo-delete="${Number(photo.id)}">
                       <span>×</span>
                       حذف تصویر
                     </button>
@@ -370,7 +355,6 @@ const PhotosManager = {
             <span class="eyebrow">BODY TRANSFORMATION</span>
             <h3>گالری تغییرات بدن</h3>
           </div>
-
           <span class="muted-text">${photos.length} تصویر</span>
         </div>
 
@@ -385,14 +369,8 @@ const PhotosManager = {
               <strong>انتخاب تصویر</strong>
               <small>برای انتخاب عکس از گوشی ضربه بزن</small>
               <span class="photo-picker-button">انتخاب از گالری</span>
-
-              <input
-                id="photo-file"
-                type="file"
-                name="photo"
-                accept="image/jpeg,image/png,image/webp"
-                required
-              />
+              <input id="photo-file" type="file" name="photo"
+                accept="image/jpeg,image/png,image/webp" required />
             </label>
 
             <div id="photo-preview-box" class="photo-preview-box" hidden>
@@ -402,22 +380,14 @@ const PhotosManager = {
 
             <label>
               تاریخ ثبت
-              <input
-                type="date"
-                name="date"
-                value="${this.localDate()}"
-                max="${this.localDate()}"
-                required
-              />
+              <input type="date" name="date"
+                value="${this.localDate()}" max="${this.localDate()}" required />
             </label>
 
             <label>
               توضیحات
-              <textarea
-                name="note"
-                maxlength="300"
-                placeholder="مثلاً ماه اول، شروع مسیر..."
-              ></textarea>
+              <textarea name="note" maxlength="300"
+                placeholder="مثلاً ماه اول، شروع مسیر..."></textarea>
             </label>
 
             <button type="submit" class="primary-btn" id="photo-save-btn">
@@ -438,15 +408,8 @@ const PhotosManager = {
                 <strong>تصویر اول</strong>
                 <small>مثلاً قبل از شروع</small>
                 <span class="comparison-select-button">انتخاب تصویر اول</span>
-
-                <input
-                  id="compare-first"
-                  type="file"
-                  name="first"
-                  accept="image/jpeg,image/png,image/webp"
-                  required
-                />
-
+                <input id="compare-first" type="file" name="first"
+                  accept="image/jpeg,image/png,image/webp" required />
                 <img id="compare-image-one" alt="پیش‌نمایش تصویر اول" hidden />
               </label>
 
@@ -456,30 +419,15 @@ const PhotosManager = {
                 <strong>تصویر دوم</strong>
                 <small>مثلاً وضعیت فعلی</small>
                 <span class="comparison-select-button">انتخاب تصویر دوم</span>
-
-                <input
-                  id="compare-second"
-                  type="file"
-                  name="second"
-                  accept="image/jpeg,image/png,image/webp"
-                  required
-                />
-
+                <input id="compare-second" type="file" name="second"
+                  accept="image/jpeg,image/png,image/webp" required />
                 <img id="compare-image-two" alt="پیش‌نمایش تصویر دوم" hidden />
               </label>
             </div>
 
-            <button type="submit" class="primary-btn">
-              نمایش مقایسه
-            </button>
-
-            <button
-              type="button"
-              class="secondary-btn"
-              id="clear-photo-comparison"
-            >
-              پاک‌کردن مقایسه
-            </button>
+            <button type="submit" class="primary-btn">نمایش مقایسه</button>
+            <button type="button" class="secondary-btn"
+              id="clear-photo-comparison">پاک‌کردن مقایسه</button>
           </form>
 
           <div id="photo-comparison-result" class="photo-comparison-result" hidden>
@@ -531,6 +479,10 @@ const PhotosManager = {
 
     if (!image) return;
 
+    if (key === "upload") {
+      this.pendingUpload = null;
+    }
+
     if (this.previewUrls[key]) {
       URL.revokeObjectURL(this.previewUrls[key]);
       delete this.previewUrls[key];
@@ -547,7 +499,6 @@ const PhotosManager = {
         "فقط عکس JPG، PNG یا WEBP تا حجم ۱۰ مگابایت مجاز است.",
         "error"
       );
-
       input.value = "";
       image.removeAttribute("src");
       image.hidden = true;
@@ -558,6 +509,26 @@ const PhotosManager = {
     this.previewUrls[key] = url;
     image.src = url;
     image.hidden = false;
+
+    if (key === "upload") {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          this.pendingUpload = {
+            imageBytes: reader.result,
+            imageType: file.type
+          };
+        }
+      };
+
+      reader.onerror = () => {
+        this.pendingUpload = null;
+        this.notify("خواندن عکس ناموفق بود. دوباره انتخابش کن.", "error");
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
   },
 
   async handleSubmit(event) {
@@ -566,13 +537,16 @@ const PhotosManager = {
     event.preventDefault();
 
     const form = event.target;
-    const file = form.elements.photo.files[0];
+    const upload = this.pendingUpload;
     const date = form.elements.date.value;
     const note = form.elements.note.value.trim();
     const button = document.getElementById("photo-save-btn");
 
-    if (!this.isValidImage(file)) {
-      this.notify("لطفاً یک تصویر معتبر انتخاب کن.", "error");
+    if (!upload || !(upload.imageBytes instanceof ArrayBuffer)) {
+      this.notify(
+        "لطفاً صبر کن تا خواندن تصویر کامل شود و دوباره ذخیره کن.",
+        "error"
+      );
       return;
     }
 
@@ -591,8 +565,14 @@ const PhotosManager = {
     }
 
     try {
-      await this.addPhoto(file, date, note);
+      await this.addPhoto(
+        upload.imageBytes,
+        upload.imageType,
+        date,
+        note
+      );
 
+      this.pendingUpload = null;
       this.clearPreviewUrls();
       this.notify("تصویر با موفقیت در آرشیو ذخیره شد.");
 
@@ -601,11 +581,7 @@ const PhotosManager = {
       }
     } catch (error) {
       console.error("Photo save error:", error);
-
-      this.notify(
-        "ذخیره تصویر ناموفق بود: " + error.message,
-        "error"
-      );
+      this.notify("ذخیره تصویر ناموفق بود: " + error.message, "error");
     } finally {
       if (button) {
         button.disabled = false;
@@ -635,7 +611,10 @@ const PhotosManager = {
     const resultOne = document.getElementById("comparison-result-one");
     const resultTwo = document.getElementById("comparison-result-two");
 
-    if (result && resultOne && resultTwo) {
+    if (
+      result && resultOne && resultTwo &&
+      this.previewUrls.first && this.previewUrls.second
+    ) {
       resultOne.src = this.previewUrls.first;
       resultTwo.src = this.previewUrls.second;
       result.hidden = false;
@@ -694,26 +673,15 @@ document.addEventListener("change", event => {
     PhotosManager.showPreview(target, "photo-preview", "upload");
 
     const box = document.getElementById("photo-preview-box");
-
-    if (box) {
-      box.hidden = !target.files?.length;
-    }
+    if (box) box.hidden = !target.files?.length;
   }
 
   if (target?.id === "compare-first") {
-    PhotosManager.showPreview(
-      target,
-      "compare-image-one",
-      "first"
-    );
+    PhotosManager.showPreview(target, "compare-image-one", "first");
   }
 
   if (target?.id === "compare-second") {
-    PhotosManager.showPreview(
-      target,
-      "compare-image-two",
-      "second"
-    );
+    PhotosManager.showPreview(target, "compare-image-two", "second");
   }
 });
 
