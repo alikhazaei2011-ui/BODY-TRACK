@@ -1374,3 +1374,59 @@ button:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* BODY TRACK — Global typography system */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Vazirmatn:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --font-fa: "Vazirmatn", sans-serif;
+  --font-en: "Sora", sans-serif;
+}
+
+html,
+body,
+button,
+input,
+textarea,
+select,
+option {
+  font-family: var(--font-fa) !important;
+}
+
+body {
+  font-family: var(--font-fa) !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+p, span, small, strong, label,
+.stat-card,
+.quick-card,
+.exercise-card,
+.day-card {
+  font-family: var(--font-fa) !important;
+}
+
+/* English branding and labels */
+.brand h1,
+.brand span,
+.eyebrow,
+.topbar-label,
+.welcome-card .eyebrow,
+.sidebar-footer,
+.topbar-date,
+.stat-card .english,
+[class*="english"],
+[class*="en-"] {
+  font-family: var(--font-en) !important;
+}
+
+/* Keep Persian numbers and text in Vazirmatn */
+.stat-card strong,
+.stat-card span,
+.stat-card small,
+.section-heading h3,
+.welcome-card h2,
+.welcome-card p {
+  font-family: var(--font-fa) !important;
+}
