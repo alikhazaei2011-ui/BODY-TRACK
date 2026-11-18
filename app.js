@@ -40,6 +40,7 @@ function renderLayout(content, activePage = "home") {
           <button data-page="home" class="${activePage === "home" ? "active" : ""}">خانه</button>
           <button data-page="workout" class="${activePage === "workout" ? "active" : ""}">برنامه تمرینی</button>
           <button data-page="body" class="${activePage === "body" ? "active" : ""}">اندازه‌های بدن</button>
+          <button data-page="photos" class="${activePage === "photos" ? "active" : ""}">گالری تغییرات بدن</button>
           <button data-page="progress" class="${activePage === "progress" ? "active" : ""}">پیشرفت من</button>
           <button data-page="profile" class="${activePage === "profile" ? "active" : ""}">پروفایل</button>
           <button data-page="backup" class="${activePage === "backup" ? "active" : ""}">پشتیبان‌گیری</button>
@@ -68,6 +69,7 @@ function renderLayout(content, activePage = "home") {
         <button data-page="home" class="${activePage === "home" ? "active" : ""}">خانه</button>
         <button data-page="workout" class="${activePage === "workout" ? "active" : ""}">تمرین</button>
         <button data-page="body" class="${activePage === "body" ? "active" : ""}">بدن</button>
+        <button data-page="photos" class="${activePage === "photos" ? "active" : ""}">گالری</button>
         <button data-page="progress" class="${activePage === "progress" ? "active" : ""}">پیشرفت</button>
         <button data-page="profile" class="${activePage === "profile" ? "active" : ""}">پروفایل</button>
         <button data-page="backup" class="${activePage === "backup" ? "active" : ""}">پشتیبان</button>
@@ -81,6 +83,7 @@ function getPageTitle(page) {
     home: "داشبورد",
     workout: "برنامه تمرینی",
     body: "اندازه‌های بدن",
+    photos: "گالری تغییرات بدن",
     progress: "گزارش پیشرفت",
     profile: "پروفایل من",
     backup: "پشتیبان‌گیری اطلاعات"
@@ -159,14 +162,20 @@ function renderHome() {
         <small>روند تغییراتت را دنبال کن</small>
       </button>
 
-      <button class="quick-card" data-page="profile">
+      <button class="quick-card" data-page="photos">
         <span>03</span>
+        <strong>گالری تغییرات بدن</strong>
+        <small>عکس‌هایت را ثبت و مقایسه کن</small>
+      </button>
+
+      <button class="quick-card" data-page="profile">
+        <span>04</span>
         <strong>پروفایل شخصی</strong>
         <small>اطلاعات شخصی‌ات را مدیریت کن</small>
       </button>
 
       <button class="quick-card" data-page="backup">
-        <span>04</span>
+        <span>05</span>
         <strong>پشتیبان‌گیری</strong>
         <small>از اطلاعاتت نسخه پشتیبان بگیر</small>
       </button>
@@ -276,7 +285,7 @@ function escapeHTML(value) {
   })[char]);
 }
 
-function showPage(page) {
+async function showPage(page) {
   if (page === "home") {
     renderHome();
   } else if (page === "workout") {
@@ -289,17 +298,22 @@ function showPage(page) {
     renderLayout(ProfileManager.render(), "profile");
   } else if (page === "backup") {
     renderLayout(BackupManager.render(), "backup");
+  } else if (page === "photos") {
+    const content = await PhotosManager.render();
+    renderLayout(content, "photos");
   }
 }
 
 document.addEventListener("click", event => {
   const pageButton = event.target.closest("[data-page]");
+
   if (pageButton) {
     showPage(pageButton.dataset.page);
     return;
   }
 
   const dayButton = event.target.closest("[data-day]");
+
   if (dayButton) {
     selectedDay = dayButton.dataset.day;
     renderWorkout();
@@ -307,19 +321,23 @@ document.addEventListener("click", event => {
   }
 
   const completeButton = event.target.closest("[data-complete]");
+
   if (completeButton) {
     const index = Number(completeButton.dataset.complete);
     workoutData[selectedDay][index].completed =
       !workoutData[selectedDay][index].completed;
+
     saveWorkouts();
     renderWorkout();
     return;
   }
 
   const deleteButton = event.target.closest("[data-delete]");
+
   if (deleteButton) {
     const index = Number(deleteButton.dataset.delete);
     workoutData[selectedDay].splice(index, 1);
+
     saveWorkouts();
     renderWorkout();
   }
@@ -345,6 +363,7 @@ document.addEventListener("submit", event => {
     }
 
     workoutData[selectedDay].push(exercise);
+
     saveWorkouts();
     renderWorkout();
   }
