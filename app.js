@@ -15,24 +15,22 @@ function loadWorkouts() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 
-    if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
-      return {};
-    }
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
 
     const cleaned = {};
 
     DAYS.forEach(day => {
       if (Array.isArray(saved[day])) {
-        cleaned[day] = saved[day].filter(item =>
-          item && typeof item === "object"
-        ).map(item => ({
-          exercise: String(item.exercise ?? ""),
-          sets: String(item.sets ?? ""),
-          reps: String(item.reps ?? ""),
-          weight: String(item.weight ?? ""),
-          note: String(item.note ?? ""),
-          completed: Boolean(item.completed)
-        }));
+        cleaned[day] = saved[day]
+          .filter(item => item && typeof item === "object")
+          .map(item => ({
+            exercise: String(item.exercise ?? ""),
+            sets: String(item.sets ?? ""),
+            reps: String(item.reps ?? ""),
+            weight: String(item.weight ?? ""),
+            note: String(item.note ?? ""),
+            completed: Boolean(item.completed)
+          }));
       }
     });
 
@@ -57,7 +55,7 @@ function saveWorkouts() {
 function getUserName() {
   try {
     return localStorage.getItem(NAME_KEY) || "";
-  } catch (error) {
+  } catch {
     return "";
   }
 }
@@ -82,7 +80,7 @@ function escapeHTML(value) {
     "<": "&lt;",
     ">": "&gt;",
     '"': "&quot;",
-    "'": "&#039;"
+    "'": "&#39;"
   })[char]);
 }
 
@@ -113,10 +111,7 @@ function getPageTitle(page) {
 }
 
 function renderLayout(content, activePage = "home") {
-  if (!app) {
-    console.error("App container not found.");
-    return;
-  }
+  if (!app) return;
 
   app.innerHTML = `
     <div class="app-shell">
@@ -133,19 +128,15 @@ function renderLayout(content, activePage = "home") {
           <button type="button" data-page="home" class="${activePage === "home" ? "active" : ""}">
             ${icons.home} خانه
           </button>
-
           <button type="button" data-page="workout" class="${activePage === "workout" ? "active" : ""}">
             ${icons.workout} برنامه تمرینی
           </button>
-
           <button type="button" data-page="body" class="${activePage === "body" ? "active" : ""}">
             ${icons.body} اندازه‌های بدن
           </button>
-
           <button type="button" data-page="progress" class="${activePage === "progress" ? "active" : ""}">
             ${icons.progress} پیشرفت من
           </button>
-
           <button type="button" data-page="more" class="${activePage === "more" ? "active" : ""}">
             ${icons.more} بخش‌های بیشتر
           </button>
@@ -162,7 +153,6 @@ function renderLayout(content, activePage = "home") {
             <span class="topbar-label">FITNESS TRACKER</span>
             <h2>${getPageTitle(activePage)}</h2>
           </div>
-
           <div class="topbar-date">
             ${new Date().toLocaleDateString("fa-IR")}
           </div>
@@ -177,19 +167,15 @@ function renderLayout(content, activePage = "home") {
         <button type="button" data-page="home" class="${activePage === "home" ? "active" : ""}">
           ${icons.home}<small>خانه</small>
         </button>
-
         <button type="button" data-page="workout" class="${activePage === "workout" ? "active" : ""}">
           ${icons.workout}<small>تمرین</small>
         </button>
-
         <button type="button" data-page="body" class="${activePage === "body" ? "active" : ""}">
           ${icons.body}<small>اندازه‌ها</small>
         </button>
-
         <button type="button" data-page="progress" class="${activePage === "progress" ? "active" : ""}">
           ${icons.progress}<small>پیشرفت</small>
         </button>
-
         <button type="button" data-page="more" class="${activePage === "more" ? "active" : ""}">
           ${icons.more}<small>بیشتر</small>
         </button>
@@ -198,7 +184,11 @@ function renderLayout(content, activePage = "home") {
   `;
 }
 
+/* NAME SETUP */
+
 function renderNameSetup() {
+  document.getElementById("body-track-name-setup")?.remove();
+
   const overlay = document.createElement("div");
   overlay.id = "body-track-name-setup";
 
@@ -212,6 +202,7 @@ function renderNameSetup() {
     padding:20px;
     background:rgba(3,10,7,.94);
     backdrop-filter:blur(18px);
+    font-family:'Vazirmatn',sans-serif;
   `;
 
   overlay.innerHTML = `
@@ -224,25 +215,19 @@ function renderNameSetup() {
       background:#0c1913;
       text-align:center;
       box-shadow:0 20px 80px rgba(0,0,0,.4);
+      box-sizing:border-box;
+      font-family:'Vazirmatn',sans-serif;
     ">
       <div style="
-        width:68px;
-        height:68px;
-        display:grid;
-        place-items:center;
-        margin:0 auto 22px;
-        border-radius:20px;
-        background:rgba(0,217,149,.12);
-        color:#8BFFCB;
-        font-size:25px;
-        font-weight:800;
+        width:68px;height:68px;display:grid;place-items:center;
+        margin:0 auto 22px;border-radius:20px;
+        background:rgba(0,217,149,.12);color:#8BFFCB;
+        font-size:25px;font-weight:800;
       ">BT</div>
 
-      <span style="
-        color:#8BFFCB;
-        font-size:11px;
-        letter-spacing:2px;
-      ">WELCOME TO BODY TRACK</span>
+      <span style="color:#8BFFCB;font-size:11px;letter-spacing:2px;">
+        WELCOME TO BODY TRACK
+      </span>
 
       <h2 style="color:#fff;margin:14px 0 10px;font-size:25px;">
         دوست داری چی صدات کنیم؟
@@ -257,33 +242,21 @@ function renderNameSetup() {
         type="text"
         maxlength="30"
         autocomplete="given-name"
-        placeholder="مثلاً محمد"
+        placeholder="مثلاً علی"
         required
         style="
-          width:100%;
-          box-sizing:border-box;
-          padding:15px;
+          width:100%;box-sizing:border-box;padding:15px;
           border:1px solid rgba(0,217,149,.25);
-          border-radius:13px;
-          outline:none;
-          background:#13241b;
-          color:#fff;
-          font:inherit;
-          text-align:center;
-          margin-bottom:16px;
+          border-radius:13px;outline:none;
+          background:#13241b;color:#fff;
+          font:inherit;text-align:center;margin-bottom:16px;
         "
       />
 
       <button type="submit" style="
-        width:100%;
-        padding:15px;
-        border:0;
-        border-radius:13px;
-        background:#00D995;
-        color:#062016;
-        font:inherit;
-        font-weight:800;
-        cursor:pointer;
+        width:100%;padding:15px;border:0;border-radius:13px;
+        background:#00D995;color:#062016;font:inherit;
+        font-weight:800;cursor:pointer;
       ">شروع کنیم ←</button>
 
       <small style="display:block;color:#71877a;margin-top:18px;">
@@ -300,14 +273,112 @@ function renderNameSetup() {
   overlay.querySelector("#name-setup-form").addEventListener("submit", event => {
     event.preventDefault();
 
-    const name = input.value.trim();
-
-    if (!name) {
+    if (!saveUserName(input.value)) {
       input.focus();
       return;
     }
 
-    if (!saveUserName(name)) {
+    overlay.remove();
+    renderHome();
+  });
+}
+
+/* CHANGE NAME MODAL */
+
+function renderNameEditor() {
+  document.getElementById("body-track-name-editor")?.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "body-track-name-editor";
+
+  overlay.style.cssText = `
+    position:fixed;
+    inset:0;
+    z-index:9998;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    background:rgba(3,10,7,.82);
+    backdrop-filter:blur(12px);
+    font-family:'Vazirmatn',sans-serif;
+  `;
+
+  overlay.innerHTML = `
+    <form id="name-editor-form" style="
+      width:100%;
+      max-width:390px;
+      padding:28px 22px;
+      border:1px solid rgba(0,217,149,.25);
+      border-radius:22px;
+      background:#0c1913;
+      box-shadow:0 20px 80px rgba(0,0,0,.45);
+      box-sizing:border-box;
+      font-family:'Vazirmatn',sans-serif;
+    ">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:#8BFFCB;font-size:12px;">PERSONAL SETTINGS</span>
+        <button type="button" id="close-name-editor" style="
+          background:#17281f;color:#fff;border:0;
+          border-radius:10px;width:35px;height:35px;
+          font-size:20px;cursor:pointer;
+        ">×</button>
+      </div>
+
+      <h3 style="color:#fff;margin:20px 0 8px;font-size:21px;">
+        تغییر نام
+      </h3>
+
+      <p style="color:#a5b7ad;font-size:13px;line-height:2;margin-bottom:20px;">
+        دوست داری از این به بعد چی صدات کنیم؟
+      </p>
+
+      <input
+        id="edit-user-name"
+        type="text"
+        maxlength="30"
+        value="${escapeHTML(getUserName())}"
+        placeholder="مثلاً علی"
+        required
+        style="
+          width:100%;box-sizing:border-box;padding:14px;
+          border:1px solid rgba(0,217,149,.25);
+          border-radius:13px;background:#13241b;
+          color:#fff;font:inherit;text-align:center;
+          outline:none;margin-bottom:16px;
+        "
+      />
+
+      <button type="submit" style="
+        width:100%;padding:14px;border:0;border-radius:13px;
+        background:#00D995;color:#062016;font:inherit;
+        font-weight:800;cursor:pointer;
+      ">ذخیره تغییرات</button>
+    </form>
+  `;
+
+  document.body.appendChild(overlay);
+  overlay.querySelector("#edit-user-name").focus();
+
+  overlay.querySelector("#close-name-editor").addEventListener("click", () => {
+    overlay.remove();
+  });
+
+  overlay.addEventListener("click", event => {
+    if (event.target === overlay) overlay.remove();
+  });
+
+  overlay.querySelector("#name-editor-form").addEventListener("submit", event => {
+    event.preventDefault();
+
+    const input = overlay.querySelector("#edit-user-name");
+
+    if (!input.value.trim()) {
+      input.focus();
+      return;
+    }
+
+    if (!saveUserName(input.value)) {
       alert("ذخیره نام انجام نشد. دوباره تلاش کن.");
       return;
     }
@@ -316,6 +387,8 @@ function renderNameSetup() {
     renderHome();
   });
 }
+
+/* BODY MEASUREMENTS */
 
 function getMeasurements() {
   try {
@@ -334,10 +407,7 @@ function getMeasurements() {
 }
 
 function formatMeasurement(value) {
-  if (value === undefined || value === null || value === "") {
-    return "—";
-  }
-
+  if (value === undefined || value === null || value === "") return "—";
   return escapeHTML(value);
 }
 
@@ -364,6 +434,8 @@ function getMeasurementChange(current, previous, field, unit = "") {
   return `${sign}${difference.toFixed(1)} ${unit} نسبت به ثبت قبلی`;
 }
 
+/* WEEKLY REPORT */
+
 function getWeeklyStats() {
   const allExercises = DAYS.flatMap(day => workoutData[day] || []);
   const total = allExercises.length;
@@ -386,6 +458,8 @@ function getWeeklyStats() {
 
   return { total, completed, percentage, dayStats };
 }
+
+/* HOME DASHBOARD */
 
 function renderHome() {
   const name = getUserName();
@@ -485,7 +559,9 @@ function renderHome() {
             </div>
           `
           : `
-            <p class="muted-text">هنوز اندازه‌ای ثبت نکردی. اولین اندازه‌گیریت رو ثبت کن تا تغییراتت رو ببینی.</p>
+            <p class="muted-text">
+              هنوز اندازه‌ای ثبت نکردی. اولین اندازه‌گیریت رو ثبت کن تا تغییراتت رو ببینی.
+            </p>
           `
       }
     </section>
@@ -498,7 +574,7 @@ function renderHome() {
       <span class="muted-text">بر اساس برنامه ثبت‌شده</span>
     </div>
 
-    <section class="stat-card">
+    <section id="weekly-report" class="stat-card" dir="rtl">
       <div class="stats-grid">
         <article>
           <span>کل حرکات</span>
@@ -549,6 +625,8 @@ function renderHome() {
   renderLayout(content, "home");
 }
 
+/* MORE PAGE */
+
 function renderMore() {
   const content = `
     <section class="more-page">
@@ -590,6 +668,8 @@ function renderMore() {
 
   renderLayout(content, "more");
 }
+
+/* WORKOUT PAGE */
 
 function renderWorkout() {
   const dayExercises = workoutData[selectedDay] || [];
@@ -721,6 +801,8 @@ function renderWorkout() {
   renderLayout(content, "workout");
 }
 
+/* PAGE ROUTER */
+
 function showPage(page) {
   switch (page) {
     case "home":
@@ -770,28 +852,15 @@ function showPage(page) {
   }
 }
 
+/* CLICK EVENTS */
+
 document.addEventListener("click", event => {
   const target = event.target;
 
   if (!(target instanceof Element)) return;
 
   if (target.closest("#change-user-name")) {
-    const currentName = getUserName();
-    const newName = prompt("دوست داری با چه اسمی صدات کنیم؟", currentName);
-
-    if (newName === null) return;
-
-    if (!newName.trim()) {
-      alert("نام نمی‌تواند خالی باشد.");
-      return;
-    }
-
-    if (saveUserName(newName)) {
-      renderHome();
-    } else {
-      alert("ذخیره نام انجام نشد.");
-    }
-
+    renderNameEditor();
     return;
   }
 
@@ -837,6 +906,8 @@ document.addEventListener("click", event => {
     renderWorkout();
   }
 });
+
+/* FORM EVENTS */
 
 document.addEventListener("submit", event => {
   if (event.target.id !== "exercise-form") return;
@@ -892,6 +963,20 @@ document.addEventListener("submit", event => {
   saveWorkouts();
   renderWorkout();
 });
+
+/* FORCE WEEKLY REPORT FONT */
+
+const weeklyFontStyle = document.createElement("style");
+weeklyFontStyle.id = "body-track-weekly-font";
+weeklyFontStyle.textContent = `
+  #weekly-report,
+  #weekly-report * {
+    font-family: 'Vazirmatn', sans-serif !important;
+  }
+`;
+document.head.appendChild(weeklyFontStyle);
+
+/* APP START */
 
 if (getUserName()) {
   renderHome();
