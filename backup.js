@@ -35,10 +35,9 @@ const BackupManager = {
 
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
-
-      request.onblocked = () => {
-        reject(new Error("Database upgrade is blocked."));
-      };
+      request.onblocked = () => reject(
+        new Error("Database upgrade is blocked.")
+      );
     });
   },
 
@@ -69,6 +68,32 @@ const BackupManager = {
         reject(error);
       }
     });
+  },
+
+  async photoToBlob(photo) {
+    if (photo.image instanceof Blob) {
+      return photo.image;
+    }
+
+    if (photo.imageBytes instanceof ArrayBuffer) {
+      return new Blob(
+        [photo.imageBytes],
+        { type: photo.imageType || "image/jpeg" }
+      );
+    }
+
+    if (ArrayBuffer.isView(photo.imageBytes)) {
+      return new Blob(
+        [photo.imageBytes],
+        { type: photo.imageType || "image/jpeg" }
+      );
+    }
+
+    if (typeof photo.imageData === "string") {
+      return this.dataURLToBlob(photo.imageData);
+    }
+
+    throw new Error("تصویر ذخیره‌شده معتبر نیست.");
   },
 
   blobToDataURL(blob) {
@@ -126,18 +151,22 @@ const BackupManager = {
       const storedPhotos = await this.getPhotos();
 
       const photos = await Promise.all(
-        storedPhotos.map(async photo => ({
-          id: photo.id,
-          date: photo.date,
-          note: photo.note || "",
-          createdAt: photo.createdAt || "",
-          image: await this.blobToDataURL(photo.image)
-        }))
+        storedPhotos.map(async photo => {
+          const blob = await this.photoToBlob(photo);
+
+          return {
+            id: photo.id,
+            date: photo.date,
+            note: photo.note || "",
+            createdAt: photo.createdAt || "",
+            image: await this.blobToDataURL(blob)
+          };
+        })
       );
 
       const backup = {
         app: "BODY TRACK",
-        version: "1.3.0",
+        version: "1.4.0",
         exportedAt: new Date().toISOString(),
         localData,
         photos
@@ -180,15 +209,10 @@ const BackupManager = {
     }
 
     this.exportKeys.forEach(key => {
-      if (
-        Object.prototype.hasOwnProperty.call(backup.localData, key)
-      ) {
+      if (Object.prototype.hasOwnProperty.call(backup.localData, key)) {
         const value = backup.localData[key];
 
-        if (
-          value === null ||
-          typeof value !== "object"
-        ) {
+        if (value === null || typeof value !== "object") {
           throw new Error("Invalid local data.");
         }
       }
@@ -210,7 +234,7 @@ const BackupManager = {
         !Number.isSafeInteger(photo.id) ||
         photo.id < 1 ||
         typeof photo.date !== "string" ||
-        !photo.image ||
+        typeof photo.image !== "string" ||
         ids.has(photo.id)
       ) {
         throw new Error("Invalid photo record.");
@@ -236,13 +260,34 @@ const BackupManager = {
         store.clear();
 
         records.forEach(photo => {
-          store.add({
+          const record = {
             id: photo.id,
             date: photo.date,
             note: photo.note || "",
-            createdAt: photo.createdAt || new Date().toISOString(),
-            image: photo.image
-          });
+            createdAt: photo.createdAt || new Date().toISOString()
+          };
+
+          if (photo.imageBytes instanceof ArrayBuffer) {
+            record.imageBytes = photo.imageBytes;
+            record.imageType = photo.imageType || "image/jpeg";
+          } else if (ArrayBuffer.isView(photo.imageBytes)) {
+            record.imageBytes = photo.imageBytes.buffer.slice(
+              photo.imageBytes.byteOffset,
+              photo.imageBytes.byteOffset + photo.imageBytes.byteLength
+            );
+            record.imageType = photo.imageType || "image/jpeg";
+          } else if (photo.image instanceof Blob) {
+            record.imageBytes = null;
+            record.image = photo.image;
+          } else if (typeof photo.imageData === "string") {
+            const blob = this.dataURLToBlob(photo.imageData);
+            record.imageBytes = null;
+            record.image = blob;
+          } else {
+            throw new Error("Invalid photo record.");
+          }
+
+          store.add(record);
         });
 
         transaction.oncomplete = () => {
@@ -273,13 +318,27 @@ const BackupManager = {
   },
 
   async restorePhotos(photos) {
-    const records = (photos || []).map(photo => ({
-      id: photo.id,
-      date: photo.date,
-      note: photo.note || "",
-      createdAt: photo.createdAt || new Date().toISOString(),
-      image: this.dataURLToBlob(photo.image)
-    }));
+    const records = (photos || []).map(photo => {
+      const blob = this.dataURLToBlob(photo.image);
+
+      return {
+        id: photo.id,
+        date: photo.date,
+        note: photo.note || "",
+        createdAt: photo.createdAt || new Date().toISOString(),
+        imageBytes: null,
+        image: blob
+      };
+    });
+
+    // Convert images to ArrayBuffer before saving.
+    for (const record of records) {
+      const buffer = await record.image.arrayBuffer();
+
+      record.imageBytes = buffer;
+      record.imageType = record.image.type;
+      delete record.image;
+    }
 
     return this.replacePhotoRecords(records);
   },
@@ -308,7 +367,6 @@ const BackupManager = {
 
       if (!confirmed) return;
 
-      // Save current data before making changes.
       const oldLocalData = {};
 
       this.exportKeys.forEach(key => {
@@ -318,12 +376,10 @@ const BackupManager = {
       const oldPhotos = await this.getPhotos();
 
       try {
-        // Restore photos first, if included in the backup.
         if (Array.isArray(backup.photos)) {
           await this.restorePhotos(backup.photos);
         }
 
-        // Restore local storage data.
         this.exportKeys.forEach(key => {
           if (
             Object.prototype.hasOwnProperty.call(
@@ -341,14 +397,12 @@ const BackupManager = {
         });
 
       } catch (restoreError) {
-        // Roll back photos to their previous state.
         try {
           await this.replacePhotoRecords(oldPhotos);
         } catch (rollbackError) {
           console.error("Photo rollback error:", rollbackError);
         }
 
-        // Roll back local storage.
         this.exportKeys.forEach(key => {
           try {
             if (oldLocalData[key] === null) {
