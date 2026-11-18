@@ -37,9 +37,7 @@ const PhotosManager = {
             autoIncrement: true
           });
 
-          store.createIndex("date", "date", {
-            unique: false
-          });
+          store.createIndex("date", "date", { unique: false });
         }
       };
 
@@ -65,10 +63,8 @@ const PhotosManager = {
     const db = await this.openDB();
 
     return new Promise((resolve, reject) => {
-      let tx;
-
       try {
-        tx = db.transaction(this.storeName, "readonly");
+        const tx = db.transaction(this.storeName, "readonly");
         const request = tx.objectStore(this.storeName).getAll();
 
         request.onsuccess = () => {
@@ -92,10 +88,8 @@ const PhotosManager = {
     const db = await this.openDB();
 
     return new Promise((resolve, reject) => {
-      let tx;
-
       try {
-        tx = db.transaction(this.storeName, "readonly");
+        const tx = db.transaction(this.storeName, "readonly");
         const request = tx.objectStore(this.storeName).get(Number(id));
 
         request.onsuccess = () => resolve(request.result || null);
@@ -106,38 +100,41 @@ const PhotosManager = {
     });
   },
 
+  isValidImage(file) {
+    return file instanceof Blob &&
+      ["image/jpeg", "image/png", "image/webp"].includes(file.type) &&
+      file.size > 0 &&
+      file.size <= 10 * 1024 * 1024;
+  },
+
   async addPhoto(file, date, note) {
     if (!this.isValidImage(file)) {
       throw new Error("فایل انتخاب‌شده تصویر معتبر نیست.");
     }
 
-    // Convert File to a standard Blob before IndexedDB storage.
-    const buffer = await file.arrayBuffer();
+    // Store image bytes instead of Blob.
+    const imageBytes = await file.arrayBuffer();
 
-    const imageBlob = new Blob([buffer], {
-      type: file.type
-    });
-
-    if (!(imageBlob instanceof Blob) || imageBlob.size === 0) {
-      throw new Error("تبدیل تصویر انجام نشد.");
+    if (!imageBytes || imageBytes.byteLength === 0) {
+      throw new Error("خواندن اطلاعات تصویر ناموفق بود.");
     }
 
     const db = await this.openDB();
 
     const id = await new Promise((resolve, reject) => {
       let tx;
+      let photoId = null;
 
       try {
         tx = db.transaction(this.storeName, "readwrite");
 
         const request = tx.objectStore(this.storeName).add({
-          image: imageBlob,
+          imageBytes,
+          imageType: file.type,
           date,
           note,
           createdAt: new Date().toISOString()
         });
-
-        let photoId = null;
 
         request.onsuccess = () => {
           photoId = request.result;
@@ -152,7 +149,7 @@ const PhotosManager = {
         };
 
         tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error || new Error("ذخیره لغو شد."));
       } catch (error) {
         reject(error);
       }
@@ -160,37 +157,38 @@ const PhotosManager = {
 
     const saved = await this.getPhoto(id);
 
-    if (!saved || !(saved.image instanceof Blob)) {
+    if (
+      !saved ||
+      !(saved.imageBytes instanceof ArrayBuffer) ||
+      saved.imageBytes.byteLength === 0
+    ) {
       throw new Error("تصویر در آرشیو قابل بازیابی نیست.");
     }
 
     return id;
   },
 
-  async deletePhoto(id) {
-    const db = await this.openDB();
+  async getImageBlob(photo) {
+    // Support older records stored as Blob.
+    if (photo.image instanceof Blob) {
+      return photo.image;
+    }
 
-    return new Promise((resolve, reject) => {
-      let tx;
+    // Support new ArrayBuffer records.
+    if (photo.imageBytes instanceof ArrayBuffer) {
+      return new Blob([photo.imageBytes], {
+        type: photo.imageType || "image/jpeg"
+      });
+    }
 
-      try {
-        tx = db.transaction(this.storeName, "readwrite");
-        tx.objectStore(this.storeName).delete(Number(id));
+    // Support typed arrays if encountered.
+    if (ArrayBuffer.isView(photo.imageBytes)) {
+      return new Blob([photo.imageBytes], {
+        type: photo.imageType || "image/jpeg"
+      });
+    }
 
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  },
-
-  isValidImage(file) {
-    return file instanceof Blob &&
-      ["image/jpeg", "image/png", "image/webp"].includes(file.type) &&
-      file.size > 0 &&
-      file.size <= 10 * 1024 * 1024;
+    throw new Error("اطلاعات تصویر معتبر نیست.");
   },
 
   createObjectUrl(blob) {
@@ -298,9 +296,26 @@ const PhotosManager = {
         showPage("photos");
       }
     } catch (error) {
-      console.error(error);
+      console.error("Photo delete error:", error);
       this.notify("حذف تصویر انجام نشد.", "error");
     }
+  },
+
+  async deletePhoto(id) {
+    const db = await this.openDB();
+
+    return new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction(this.storeName, "readwrite");
+        tx.objectStore(this.storeName).delete(Number(id));
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      } catch (error) {
+        reject(error);
+      }
+    });
   },
 
   async render() {
@@ -309,14 +324,16 @@ const PhotosManager = {
     try {
       const photos = await this.getAll();
 
-      const cards = photos.length
-        ? photos.map(photo => {
-            if (!(photo.image instanceof Blob)) return "";
+      const cardResults = await Promise.all(
+        photos.map(async photo => {
+          try {
+            const blob = await this.getImageBlob(photo);
+            const imageUrl = this.createObjectUrl(blob);
 
             return `
               <article class="photo-card">
                 <img
-                  src="${this.createObjectUrl(photo.image)}"
+                  src="${imageUrl}"
                   alt="تصویر ثبت‌شده"
                   loading="lazy"
                 />
@@ -338,13 +355,14 @@ const PhotosManager = {
                 </div>
               </article>
             `;
-          }).join("")
-        : `
-          <div class="empty-state">
-            <strong>هنوز تصویری ثبت نکرده‌ای</strong>
-            <p>اولین عکس مسیر پیشرفتت رو به آرشیو اضافه کن.</p>
-          </div>
-        `;
+          } catch (error) {
+            console.error("Photo display error:", photo.id, error);
+            return "";
+          }
+        })
+      );
+
+      const cards = cardResults.filter(Boolean).join("");
 
       return `
         <div class="section-heading">
@@ -463,6 +481,20 @@ const PhotosManager = {
               پاک‌کردن مقایسه
             </button>
           </form>
+
+          <div id="photo-comparison-result" class="photo-comparison-result" hidden>
+            <h3>نتیجه مقایسه</h3>
+            <div class="comparison-result-grid">
+              <div>
+                <span>تصویر اول</span>
+                <img id="comparison-result-one" alt="تصویر اول برای مقایسه" />
+              </div>
+              <div>
+                <span>تصویر دوم</span>
+                <img id="comparison-result-two" alt="تصویر دوم برای مقایسه" />
+              </div>
+            </div>
+          </div>
         </section>
 
         <div class="section-heading">
@@ -472,7 +504,14 @@ const PhotosManager = {
           </div>
         </div>
 
-        <div class="photo-gallery">${cards}</div>
+        <div class="photo-gallery">
+          ${cards || `
+            <div class="empty-state">
+              <strong>هنوز تصویری ثبت نکرده‌ای</strong>
+              <p>اولین عکس مسیر پیشرفتت رو به آرشیو اضافه کن.</p>
+            </div>
+          `}
+        </div>
       `;
     } catch (error) {
       console.error("Photos render error:", error);
@@ -589,19 +628,21 @@ const PhotosManager = {
       return;
     }
 
-    this.showPreview(
-      form.elements.first,
-      "compare-image-one",
-      "first"
-    );
+    this.showPreview(form.elements.first, "compare-image-one", "first");
+    this.showPreview(form.elements.second, "compare-image-two", "second");
 
-    this.showPreview(
-      form.elements.second,
-      "compare-image-two",
-      "second"
-    );
+    const result = document.getElementById("photo-comparison-result");
+    const resultOne = document.getElementById("comparison-result-one");
+    const resultTwo = document.getElementById("comparison-result-two");
 
-    this.notify("تصاویر برای مقایسه آماده شدند.");
+    if (result && resultOne && resultTwo) {
+      resultOne.src = this.previewUrls.first;
+      resultTwo.src = this.previewUrls.second;
+      result.hidden = false;
+      result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    this.notify("مقایسه تصاویر آماده شد.");
   },
 
   clearComparison() {
@@ -613,17 +654,24 @@ const PhotosManager = {
     });
 
     const form = document.getElementById("photo-compare-form");
-
     if (form) form.reset();
 
-    ["compare-image-one", "compare-image-two"].forEach(id => {
+    [
+      "compare-image-one",
+      "compare-image-two",
+      "comparison-result-one",
+      "comparison-result-two"
+    ].forEach(id => {
       const image = document.getElementById(id);
 
       if (image) {
         image.removeAttribute("src");
-        image.hidden = true;
+        image.hidden = id.startsWith("compare-");
       }
     });
+
+    const result = document.getElementById("photo-comparison-result");
+    if (result) result.hidden = true;
 
     this.notify("مقایسه پاک شد.");
   }
