@@ -7,7 +7,6 @@ const DAYS = [
 ];
 
 let selectedDay = DAYS[0];
-
 let workoutData = JSON.parse(
   localStorage.getItem("bodyTrackWorkouts") || "{}"
 );
@@ -32,17 +31,21 @@ function getPageTitle(page) {
     workout: "برنامه تمرینی",
     body: "اندازه‌های بدن",
     progress: "گزارش پیشرفت",
+    photos: "گالری تصاویر بدن",
     profile: "پروفایل من",
-    backup: "پشتیبان‌گیری اطلاعات",
-    photos: "گالری تصاویر بدن"
+    backup: "پشتیبان‌گیری"
   };
 
   return titles[page] || "BODY TRACK";
 }
 
 function renderLayout(content, activePage = "home") {
+  const morePages = ["photos", "profile", "backup"];
+  const isMoreActive = morePages.includes(activePage);
+
   app.innerHTML = `
     <div class="app-shell">
+
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-mark">BT</div>
@@ -57,9 +60,18 @@ function renderLayout(content, activePage = "home") {
           <button data-page="workout" class="${activePage === "workout" ? "active" : ""}">برنامه تمرینی</button>
           <button data-page="body" class="${activePage === "body" ? "active" : ""}">اندازه‌های بدن</button>
           <button data-page="progress" class="${activePage === "progress" ? "active" : ""}">پیشرفت من</button>
-          <button data-page="photos" class="${activePage === "photos" ? "active" : ""}">تصاویر بدن</button>
-          <button data-page="profile" class="${activePage === "profile" ? "active" : ""}">پروفایل</button>
-          <button data-page="backup" class="${activePage === "backup" ? "active" : ""}">پشتیبان‌گیری</button>
+
+          <div class="sidebar-more">
+            <button class="more-heading ${isMoreActive ? "active" : ""}" data-more-toggle>
+              بیشتر <span>⌄</span>
+            </button>
+
+            <div class="more-links ${isMoreActive ? "open" : ""}">
+              <button data-page="photos" class="${activePage === "photos" ? "active" : ""}">گالری تصاویر بدن</button>
+              <button data-page="profile" class="${activePage === "profile" ? "active" : ""}">پروفایل شخصی</button>
+              <button data-page="backup" class="${activePage === "backup" ? "active" : ""}">پشتیبان‌گیری</button>
+            </div>
+          </div>
         </nav>
 
         <div class="sidebar-footer">
@@ -81,13 +93,38 @@ function renderLayout(content, activePage = "home") {
         </section>
       </main>
 
+      <div class="mobile-more-panel ${isMoreActive ? "open" : ""}" id="mobile-more-panel">
+        <div class="more-panel-heading">
+          <strong>بخش‌های بیشتر</strong>
+          <button data-more-close aria-label="بستن">×</button>
+        </div>
+        <button data-page="photos" class="${activePage === "photos" ? "active" : ""}">
+          <span>▧</span> گالری تصاویر بدن
+        </button>
+        <button data-page="profile" class="${activePage === "profile" ? "active" : ""}">
+          <span>♙</span> پروفایل شخصی
+        </button>
+        <button data-page="backup" class="${activePage === "backup" ? "active" : ""}">
+          <span>↥</span> پشتیبان‌گیری
+        </button>
+      </div>
+
       <nav class="mobile-nav">
-        <button data-page="home" class="${activePage === "home" ? "active" : ""}">خانه</button>
-        <button data-page="workout" class="${activePage === "workout" ? "active" : ""}">تمرین</button>
-        <button data-page="body" class="${activePage === "body" ? "active" : ""}">بدن</button>
-        <button data-page="progress" class="${activePage === "progress" ? "active" : ""}">پیشرفت</button>
-        <button data-page="photos" class="${activePage === "photos" ? "active" : ""}">تصاویر</button>
-        <button data-page="profile" class="${activePage === "profile" ? "active" : ""}">پروفایل</button>
+        <button data-page="home" class="${activePage === "home" ? "active" : ""}">
+          <span>⌂</span><small>خانه</small>
+        </button>
+        <button data-page="workout" class="${activePage === "workout" ? "active" : ""}">
+          <span>▤</span><small>تمرین</small>
+        </button>
+        <button data-page="body" class="${activePage === "body" ? "active" : ""}">
+          <span>◉</span><small>اندازه‌ها</small>
+        </button>
+        <button data-page="progress" class="${activePage === "progress" ? "active" : ""}">
+          <span>⌁</span><small>پیشرفت</small>
+        </button>
+        <button data-more-toggle class="${isMoreActive ? "active" : ""}">
+          <span>☰</span><small>بیشتر</small>
+        </button>
       </nav>
     </div>
   `;
@@ -289,6 +326,17 @@ function showPage(page) {
 }
 
 document.addEventListener("click", event => {
+  const moreToggle = event.target.closest("[data-more-toggle]");
+  if (moreToggle) {
+    document.getElementById("mobile-more-panel")?.classList.toggle("open");
+    return;
+  }
+
+  if (event.target.closest("[data-more-close]")) {
+    document.getElementById("mobile-more-panel")?.classList.remove("open");
+    return;
+  }
+
   const pageButton = event.target.closest("[data-page]");
   if (pageButton) {
     showPage(pageButton.dataset.page);
