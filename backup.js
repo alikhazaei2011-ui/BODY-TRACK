@@ -46,16 +46,28 @@ const BackupManager = {
     const db = await this.openDB();
 
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(this.storeName, "readonly");
-      const request = transaction.objectStore(this.storeName).getAll();
+      let transaction;
 
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
+      try {
+        transaction = db.transaction(this.storeName, "readonly");
+        const request = transaction.objectStore(this.storeName).getAll();
 
-      transaction.oncomplete = () => db.close();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
 
-      transaction.onerror = () => db.close();
-      transaction.onabort = () => db.close();
+        transaction.oncomplete = () => db.close();
+        transaction.onerror = () => {
+          db.close();
+          reject(transaction.error);
+        };
+        transaction.onabort = () => {
+          db.close();
+          reject(transaction.error);
+        };
+      } catch (error) {
+        db.close();
+        reject(error);
+      }
     });
   },
 
@@ -125,7 +137,7 @@ const BackupManager = {
 
       const backup = {
         app: "BODY TRACK",
-        version: "1.2.0",
+        version: "1.3.0",
         exportedAt: new Date().toISOString(),
         localData,
         photos
@@ -146,7 +158,7 @@ const BackupManager = {
       link.click();
       link.remove();
 
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
 
       alert("نسخه پشتیبان اطلاعات و تصاویر آماده شد.");
     } catch (error) {
@@ -190,6 +202,7 @@ const BackupManager = {
     }
 
     const photos = backup.photos || [];
+    const ids = new Set();
 
     photos.forEach(photo => {
       if (
@@ -197,56 +210,86 @@ const BackupManager = {
         !Number.isSafeInteger(photo.id) ||
         photo.id < 1 ||
         typeof photo.date !== "string" ||
-        !photo.image
+        !photo.image ||
+        ids.has(photo.id)
       ) {
         throw new Error("Invalid photo record.");
       }
 
+      ids.add(photo.id);
       this.dataURLToBlob(photo.image);
     });
 
     return true;
   },
 
-  async restorePhotos(photos) {
+  async replacePhotoRecords(records) {
     const db = await this.openDB();
 
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(this.storeName, "readwrite");
-      const store = transaction.objectStore(this.storeName);
+      let transaction;
 
-      store.clear();
+      try {
+        transaction = db.transaction(this.storeName, "readwrite");
+        const store = transaction.objectStore(this.storeName);
 
-      (photos || []).forEach(photo => {
-        store.add({
-          id: photo.id,
-          date: photo.date,
-          note: photo.note || "",
-          createdAt: photo.createdAt || new Date().toISOString(),
-          image: this.dataURLToBlob(photo.image)
+        store.clear();
+
+        records.forEach(photo => {
+          store.add({
+            id: photo.id,
+            date: photo.date,
+            note: photo.note || "",
+            createdAt: photo.createdAt || new Date().toISOString(),
+            image: photo.image
+          });
         });
-      });
 
-      transaction.oncomplete = () => {
-        db.close();
-        resolve();
-      };
+        transaction.oncomplete = () => {
+          db.close();
+          resolve();
+        };
 
-      transaction.onerror = () => {
-        db.close();
-        reject(transaction.error);
-      };
+        transaction.onerror = () => {
+          db.close();
+          reject(transaction.error);
+        };
 
-      transaction.onabort = () => {
+        transaction.onabort = () => {
+          db.close();
+          reject(transaction.error || new Error("Restore aborted."));
+        };
+      } catch (error) {
+        if (transaction) {
+          try {
+            transaction.abort();
+          } catch (_) {}
+        }
+
         db.close();
-        reject(transaction.error || new Error("Restore aborted."));
-      };
+        reject(error);
+      }
     });
+  },
+
+  async restorePhotos(photos) {
+    const records = (photos || []).map(photo => ({
+      id: photo.id,
+      date: photo.date,
+      note: photo.note || "",
+      createdAt: photo.createdAt || new Date().toISOString(),
+      image: this.dataURLToBlob(photo.image)
+    }));
+
+    return this.replacePhotoRecords(records);
   },
 
   async importData(file) {
     try {
-      if (!file || !file.name.toLowerCase().endsWith(".json")) {
+      if (
+        !file ||
+        !file.name.toLowerCase().endsWith(".json")
+      ) {
         throw new Error("Please select a JSON backup file.");
       }
 
@@ -265,7 +308,7 @@ const BackupManager = {
 
       if (!confirmed) return;
 
-      // Keep a copy of the current data in case restoration fails.
+      // Save current data before making changes.
       const oldLocalData = {};
 
       this.exportKeys.forEach(key => {
@@ -275,12 +318,12 @@ const BackupManager = {
       const oldPhotos = await this.getPhotos();
 
       try {
-        // Restore photos first.
+        // Restore photos first, if included in the backup.
         if (Array.isArray(backup.photos)) {
           await this.restorePhotos(backup.photos);
         }
 
-        // Restore local data.
+        // Restore local storage data.
         this.exportKeys.forEach(key => {
           if (
             Object.prototype.hasOwnProperty.call(
@@ -298,21 +341,14 @@ const BackupManager = {
         });
 
       } catch (restoreError) {
-        // Try to return the app to its previous state.
+        // Roll back photos to their previous state.
         try {
-          await this.restorePhotos(
-            oldPhotos.map(photo => ({
-              id: photo.id,
-              date: photo.date,
-              note: photo.note || "",
-              createdAt: photo.createdAt || "",
-              image: await this.blobToDataURL(photo.image)
-            }))
-          );
+          await this.replacePhotoRecords(oldPhotos);
         } catch (rollbackError) {
           console.error("Photo rollback error:", rollbackError);
         }
 
+        // Roll back local storage.
         this.exportKeys.forEach(key => {
           try {
             if (oldLocalData[key] === null) {
