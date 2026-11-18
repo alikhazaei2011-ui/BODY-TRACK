@@ -189,64 +189,29 @@ function renderMore() {
       <div class="more-page-intro">
         <span class="eyebrow">BODY TRACK TOOLS</span>
         <h2>بخش‌های بیشتر</h2>
-        <p>
-          ابزارهای تکمیلی برای مدیریت اطلاعات و مسیر تناسب اندامت.
-        </p>
+        <p>ابزارهای تکمیلی برای مدیریت اطلاعات و مسیر تناسب اندامت.</p>
       </div>
 
       <div class="more-page-grid">
 
-        <button
-          type="button"
-          class="more-page-card"
-          data-page="photos"
-        >
-          <span class="more-page-icon">
-            ${icons.photos}
-          </span>
-
+        <button type="button" class="more-page-card" data-page="photos">
+          <span class="more-page-icon">${icons.photos}</span>
           <strong>گالری تصاویر بدن</strong>
-
-          <small>
-            ثبت و مقایسه عکس‌های تغییرات بدن
-          </small>
-
+          <small>ثبت و مقایسه عکس‌های تغییرات بدن</small>
           <span class="more-page-arrow">←</span>
         </button>
 
-        <button
-          type="button"
-          class="more-page-card"
-          data-page="profile"
-        >
-          <span class="more-page-icon">
-            ${icons.profile}
-          </span>
-
+        <button type="button" class="more-page-card" data-page="profile">
+          <span class="more-page-icon">${icons.profile}</span>
           <strong>پروفایل شخصی</strong>
-
-          <small>
-            مدیریت اطلاعات و هدف‌های شخصی
-          </small>
-
+          <small>مدیریت اطلاعات و هدف‌های شخصی</small>
           <span class="more-page-arrow">←</span>
         </button>
 
-        <button
-          type="button"
-          class="more-page-card"
-          data-page="backup"
-        >
-          <span class="more-page-icon">
-            ${icons.backup}
-          </span>
-
+        <button type="button" class="more-page-card" data-page="backup">
+          <span class="more-page-icon">${icons.backup}</span>
           <strong>پشتیبان‌گیری</strong>
-
-          <small>
-            خروجی گرفتن و بازیابی اطلاعات
-          </small>
-
+          <small>خروجی گرفتن و بازیابی اطلاعات</small>
           <span class="more-page-arrow">←</span>
         </button>
 
@@ -324,159 +289,197 @@ function renderHome() {
 
 function renderWorkout() {
   const dayExercises = workoutData[selectedDay] || [];
+  const completedCount = dayExercises.filter(item => item.completed).length;
+  const totalCount = dayExercises.length;
+  const progress = totalCount
+    ? Math.round((completedCount / totalCount) * 100)
+    : 0;
 
   const content = `
-    <div class="section-heading">
-      <div>
-        <span class="eyebrow">WEEKLY PLAN</span>
-        <h3>برنامه هفتگی تو</h3>
-      </div>
+    <section class="workout-compact">
 
-      <span class="muted-text">تمرین‌هایت را مدیریت کن</span>
-    </div>
-
-    <div class="days-grid">
-      ${DAYS.map(day => `
-        <button
-          type="button"
-          class="day-card ${selectedDay === day ? "selected" : ""}"
-          data-day="${day}"
-        >
-          ${day}
-        </button>
-      `).join("")}
-    </div>
-
-    <div class="workout-panel">
-      <div class="section-heading">
+      <div class="workout-week-header">
         <div>
-          <span class="eyebrow">SELECTED DAY</span>
-          <h3>${selectedDay}</h3>
+          <span class="eyebrow">WEEKLY PLAN</span>
+          <h3>برنامه هفتگی</h3>
         </div>
-
-        <span class="muted-text">${dayExercises.length} تمرین</span>
+        <span class="muted-text">انتخاب روز</span>
       </div>
 
-      <form id="exercise-form">
-        <div class="form-grid">
-          <label>
-            نام حرکت
-            <input
-              name="exercise"
-              type="text"
-              maxlength="80"
-              placeholder="مثلاً جلو بازو"
-              required
-            />
-          </label>
+      <div class="days-grid">
+        ${DAYS.map(day => {
+          const exercises = workoutData[day] || [];
+          const done = exercises.filter(item => item.completed).length;
 
-          <label>
-            تعداد ست
-            <input
-              name="sets"
-              type="number"
-              min="1"
-              max="100"
-              step="1"
-              placeholder="3"
-              required
-            />
-          </label>
+          return `
+            <button
+              type="button"
+              class="day-card ${selectedDay === day ? "selected" : ""}"
+              data-day="${day}"
+            >
+              <span>${day}</span>
+              ${exercises.length ? `<small>${done}/${exercises.length}</small>` : ""}
+            </button>
+          `;
+        }).join("")}
+      </div>
 
-          <label>
-            تعداد تکرار
-            <input
-              name="reps"
-              type="number"
-              min="1"
-              max="1000"
-              step="1"
-              placeholder="12"
-              required
-            />
-          </label>
+      <section class="workout-day-section">
 
-          <label>
-            وزن (کیلوگرم)
-            <input
-              name="weight"
-              type="number"
-              min="0"
-              max="1000"
-              step="0.5"
-              placeholder="اختیاری"
-            />
-          </label>
+        <div class="workout-day-heading">
+          <div>
+            <span class="eyebrow">SELECTED DAY</span>
+            <h3>تمرین‌های ${selectedDay}</h3>
+          </div>
+
+          <span class="workout-count">
+            ${completedCount} از ${totalCount} انجام‌شده
+          </span>
         </div>
 
-        <label>
-          توضیحات
-          <textarea
-            name="note"
-            maxlength="500"
-            placeholder="نکته یا توضیح تمرین..."
-          ></textarea>
-        </label>
+        <div class="workout-progress-track">
+          <div
+            class="workout-progress-fill"
+            style="width:${progress}%"
+          ></div>
+        </div>
 
-        <button type="submit" class="primary-btn">
-          + افزودن تمرین
-        </button>
-      </form>
+        <details class="add-exercise-details">
+          <summary>+ افزودن حرکت جدید</summary>
 
-      <div class="exercise-list">
+          <form id="exercise-form" class="compact-exercise-form">
+
+            <div class="form-grid">
+              <label>
+                نام حرکت
+                <input
+                  name="exercise"
+                  type="text"
+                  maxlength="80"
+                  placeholder="مثلاً جلو بازو"
+                  required
+                />
+              </label>
+
+              <label>
+                تعداد ست
+                <input
+                  name="sets"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  placeholder="3"
+                  required
+                />
+              </label>
+
+              <label>
+                تعداد تکرار
+                <input
+                  name="reps"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  step="1"
+                  placeholder="15"
+                  required
+                />
+              </label>
+
+              <label>
+                وزن (کیلوگرم)
+                <input
+                  name="weight"
+                  type="number"
+                  min="0"
+                  max="1000"
+                  step="0.5"
+                  placeholder="اختیاری"
+                />
+              </label>
+            </div>
+
+            <label>
+              توضیحات
+              <textarea
+                name="note"
+                maxlength="500"
+                placeholder="توضیحات اختیاری..."
+              ></textarea>
+            </label>
+
+            <button type="submit" class="primary-btn">
+              ذخیره حرکت
+            </button>
+
+          </form>
+        </details>
+
+        <div class="exercise-list">
+          ${
+            totalCount
+              ? dayExercises.map((item, index) => `
+                <article class="exercise-card compact-exercise-card ${item.completed ? "completed" : ""}">
+
+                  <div class="exercise-info">
+                    <strong>${escapeHTML(item.exercise)}</strong>
+
+                    <span>
+                      ${escapeHTML(item.sets)} ست ×
+                      ${escapeHTML(item.reps)} تکرار
+                    </span>
+
+                    ${
+                      item.weight !== ""
+                        ? `<small>وزن: ${escapeHTML(item.weight)} کیلوگرم</small>`
+                        : ""
+                    }
+
+                    ${
+                      item.note
+                        ? `<small>${escapeHTML(item.note)}</small>`
+                        : ""
+                    }
+                  </div>
+
+                  <div class="exercise-actions">
+                    <button
+                      type="button"
+                      data-complete="${index}"
+                      class="complete-btn"
+                    >
+                      ${item.completed ? "✓ انجام شد" : "تکمیل"}
+                    </button>
+
+                    <button
+                      type="button"
+                      data-delete="${index}"
+                      class="delete-btn"
+                    >
+                      حذف
+                    </button>
+                  </div>
+
+                </article>
+              `).join("")
+              : `
+                <div class="empty-state compact-empty-state">
+                  <strong>هنوز حرکتی ثبت نکردی</strong>
+                  <p>برای شروع، روی افزودن حرکت جدید بزن.</p>
+                </div>
+              `
+          }
+        </div>
+
         ${
-          dayExercises.length
-            ? dayExercises.map((item, index) => `
-              <article class="exercise-card ${item.completed ? "completed" : ""}">
-                <div class="exercise-info">
-                  <strong>${escapeHTML(item.exercise)}</strong>
-
-                  <span>
-                    ${escapeHTML(item.sets)} ست ×
-                    ${escapeHTML(item.reps)} تکرار
-                  </span>
-
-                  ${
-                    item.weight !== ""
-                      ? `<small>وزن: ${escapeHTML(item.weight)} کیلوگرم</small>`
-                      : ""
-                  }
-
-                  ${
-                    item.note
-                      ? `<small>${escapeHTML(item.note)}</small>`
-                      : ""
-                  }
-                </div>
-
-                <div class="exercise-actions">
-                  <button
-                    type="button"
-                    data-complete="${index}"
-                    class="complete-btn"
-                  >
-                    ${item.completed ? "انجام شد ✓" : "تکمیل"}
-                  </button>
-
-                  <button
-                    type="button"
-                    data-delete="${index}"
-                    class="delete-btn"
-                  >
-                    حذف
-                  </button>
-                </div>
-              </article>
-            `).join("")
-            : `
-              <div class="empty-state">
-                <strong>هنوز تمرینی ثبت نشده</strong>
-                <p>اولین حرکت این روز را اضافه کن.</p>
-              </div>
-            `
+          totalCount && completedCount === totalCount
+            ? `<div class="workout-finished-message">🎉 آفرین! تمرین‌های ${selectedDay} رو کامل انجام دادی.</div>`
+            : ""
         }
-      </div>
-    </div>
+
+      </section>
+    </section>
   `;
 
   renderLayout(content, "workout");
@@ -589,8 +592,7 @@ document.addEventListener("submit", event => {
 
   event.preventDefault();
 
-  const form = event.target;
-  const formData = new FormData(form);
+  const formData = new FormData(event.target);
 
   const exerciseName = String(formData.get("exercise") || "").trim();
   const sets = Number(formData.get("sets"));
@@ -623,20 +625,18 @@ document.addEventListener("submit", event => {
     return;
   }
 
-  const exercise = {
+  if (!workoutData[selectedDay]) {
+    workoutData[selectedDay] = [];
+  }
+
+  workoutData[selectedDay].push({
     exercise: exerciseName,
     sets: String(sets),
     reps: String(reps),
     weight: weightValue,
     note,
     completed: false
-  };
-
-  if (!workoutData[selectedDay]) {
-    workoutData[selectedDay] = [];
-  }
-
-  workoutData[selectedDay].push(exercise);
+  });
 
   saveWorkouts();
   renderWorkout();
