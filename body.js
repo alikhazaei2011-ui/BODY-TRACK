@@ -1,4 +1,53 @@
 
+// سیستم پیام‌های موفقیت و خطا در BODY TRACK
+window.showToast = window.showToast || function(message, type = "success") {
+  let toast = document.getElementById("body-track-toast");
+
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "body-track-toast";
+    document.body.appendChild(toast);
+  }
+
+  toast.textContent = message;
+
+  Object.assign(toast.style, {
+    position: "fixed",
+    bottom: "28px",
+    left: "50%",
+    transform: "translate(-50%, 20px)",
+    padding: "13px 22px",
+    borderRadius: "14px",
+    background: type === "success" ? "#123d2b" : "#4a2020",
+    color: "#ffffff",
+    border: `1px solid ${type === "success" ? "#20c77a" : "#e05b5b"}`,
+    boxShadow: "0 8px 30px rgba(0,0,0,.3)",
+    fontFamily: "Vazirmatn, sans-serif",
+    fontSize: "14px",
+    fontWeight: "600",
+    zIndex: "99999",
+    opacity: "0",
+    transition: "opacity .25s ease, transform .25s ease",
+    pointerEvents: "none",
+    textAlign: "center",
+    maxWidth: "90%",
+    direction: "rtl"
+  });
+
+  clearTimeout(window.bodyTrackToastTimer);
+
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+    toast.style.transform = "translate(-50%, 0)";
+  });
+
+  window.bodyTrackToastTimer = setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translate(-50%, 20px)";
+  }, 2800);
+};
+
+
 const BodyTracker = {
   key: "bodyTrackMeasurements",
 
@@ -285,6 +334,10 @@ const BodyTracker = {
     records.push(record);
 
     if (!this.saveData(records)) return;
+
+    if (typeof window.showToast === "function") {
+      window.showToast("اندازه‌گیری با موفقیت ذخیره شد! ✓");
+    }
 
     if (typeof showPage === "function") {
       showPage("body");
