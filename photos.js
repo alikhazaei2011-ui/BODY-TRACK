@@ -3,11 +3,18 @@ const PhotosManager = {
   dbName: "BodyTrackPhotos",
   storeName: "photos",
   db: null,
+  selectedPhotos: [],
+  objectUrls: [],
 
   openDB() {
     return new Promise((resolve, reject) => {
       if (this.db) {
         resolve(this.db);
+        return;
+      }
+
+      if (!("indexedDB" in window)) {
+        reject(new Error("IndexedDB is not supported."));
         return;
       }
 
@@ -30,11 +37,18 @@ const PhotosManager = {
 
       request.onsuccess = event => {
         this.db = event.target.result;
+
+        this.db.onversionchange = () => {
+          this.db.close();
+          this.db = null;
+        };
+
         resolve(this.db);
       };
 
-      request.onerror = () => {
-        reject(request.error);
+      request.onerror = () => reject(request.error);
+      request.onblocked = () => {
+        reject(new Error("Database upgrade is blocked."));
       };
     });
   },
@@ -47,9 +61,13 @@ const PhotosManager = {
       const request = transaction.objectStore(this.storeName).getAll();
 
       request.onsuccess = () => {
-        resolve(request.result.sort((a, b) =>
-          b.date.localeCompare(a.date)
-        ));
+        const photos = request.result || [];
+
+        photos.sort((a, b) =>
+          String(b.date || "").localeCompare(String(a.date || ""))
+        );
+
+        resolve(photos);
       };
 
       request.onerror = () => reject(request.error);
@@ -87,7 +105,20 @@ const PhotosManager = {
     });
   },
 
+  createObjectUrl(file) {
+    const url = URL.createObjectURL(file);
+    this.objectUrls.push(url);
+    return url;
+  },
+
+  clearObjectUrls() {
+    this.objectUrls.forEach(url => URL.revokeObjectURL(url));
+    this.objectUrls = [];
+  },
+
   async render() {
+    this.clearObjectUrls();
+
     try {
       const photos = await this.getAll();
 
@@ -95,8 +126,9 @@ const PhotosManager = {
         ? photos.map(photo => `
           <article class="photo-card">
             <img
-              src="${URL.createObjectURL(photo.image)}"
-              alt="تصویر ثبت‌شده در ${photo.date}"
+              src="${this.createObjectUrl(photo.image)}"
+              alt="تصویر ثبت‌شده در ${this.escape(photo.date)}"
+              loading="lazy"
             />
 
             <div class="photo-card-info">
@@ -105,15 +137,17 @@ const PhotosManager = {
 
               <div class="photo-actions">
                 <button
+                  type="button"
                   class="secondary-btn"
-                  data-photo-compare="${photo.id}"
+                  data-photo-compare="${Number(photo.id)}"
                 >
                   مقایسه
                 </button>
 
                 <button
+                  type="button"
                   class="delete-btn"
-                  data-photo-delete="${photo.id}"
+                  data-photo-delete="${Number(photo.id)}"
                 >
                   حذف
                 </button>
@@ -159,6 +193,7 @@ const PhotosManager = {
                 type="date"
                 name="date"
                 value="${new Date().toLocaleDateString("en-CA")}"
+                max="${new Date().toLocaleDateString("en-CA")}"
                 required
               />
             </label>
@@ -167,6 +202,7 @@ const PhotosManager = {
               توضیحات
               <textarea
                 name="note"
+                maxlength="300"
                 placeholder="مثلاً ماه اول، شروع مسیر..."
               ></textarea>
             </label>
@@ -205,49 +241,58 @@ const PhotosManager = {
         </div>
       `;
     } catch (error) {
+      console.error("Photos render error:", error);
+
       return `
         <div class="empty-state">
           <strong>گالری در دسترس نیست</strong>
-          <p>مرورگر از ذخیره‌سازی تصاویر پشتیبانی نکرد یا دسترسی لازم را نداشت.</p>
+          <p>ذخیره‌سازی تصاویر با مشکل مواجه شده است. دوباره تلاش کن.</p>
         </div>
       `;
     }
   },
 
-  selectedPhotos: [],
-
   async handleCompare(id) {
-    const photos = await this.getAll();
-    const selected = photos.find(photo => photo.id === Number(id));
+    try {
+      const photos = await this.getAll();
+      const selected = photos.find(photo => photo.id === Number(id));
 
-    if (!selected) return;
+      if (!selected) return;
 
-    this.selectedPhotos = this.selectedPhotos.filter(
-      photo => photo.id !== selected.id
-    );
+      this.selectedPhotos = this.selectedPhotos.filter(
+        photo => photo.id !== selected.id
+      );
 
-    this.selectedPhotos.push(selected);
+      this.selectedPhotos.push(selected);
 
-    if (this.selectedPhotos.length > 2) {
-      this.selectedPhotos.shift();
-    }
+      if (this.selectedPhotos.length > 2) {
+        this.selectedPhotos.shift();
+      }
 
-    if (this.selectedPhotos.length === 2) {
+      if (this.selectedPhotos.length < 2) {
+        alert("حالا یک تصویر دیگر هم برای مقایسه انتخاب کن.");
+        return;
+      }
+
       const first = this.selectedPhotos[0];
       const second = this.selectedPhotos[1];
 
       const firstImage = document.getElementById("compare-image-one");
       const secondImage = document.getElementById("compare-image-two");
+      const comparison = document.getElementById("photo-comparison");
 
-      firstImage.src = URL.createObjectURL(first.image);
-      secondImage.src = URL.createObjectURL(second.image);
+      if (!firstImage || !secondImage || !comparison) return;
 
-      document.querySelector("#photo-comparison").scrollIntoView({
+      firstImage.src = this.createObjectUrl(first.image);
+      secondImage.src = this.createObjectUrl(second.image);
+
+      comparison.scrollIntoView({
         behavior: "smooth",
         block: "center"
       });
-    } else {
-      alert("حالا یک تصویر دیگر هم برای مقایسه انتخاب کن.");
+    } catch (error) {
+      console.error("Photo comparison error:", error);
+      alert("مقایسه تصاویر انجام نشد.");
     }
   },
 
@@ -262,7 +307,7 @@ const PhotosManager = {
   },
 
   async handleSubmit(event) {
-    if (event.target.id !== "photo-form") return;
+    if (!event.target || event.target.id !== "photo-form") return;
 
     event.preventDefault();
 
@@ -271,7 +316,10 @@ const PhotosManager = {
     const date = form.elements.date.value;
     const note = form.elements.note.value.trim();
 
-    if (!file) return;
+    if (!file) {
+      alert("لطفاً یک تصویر انتخاب کن.");
+      return;
+    }
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       alert("فقط تصاویر JPG، PNG و WEBP قابل قبول هستند.");
@@ -283,11 +331,27 @@ const PhotosManager = {
       return;
     }
 
+    if (!date || Number.isNaN(Date.parse(date))) {
+      alert("لطفاً تاریخ معتبری انتخاب کن.");
+      return;
+    }
+
+    if (date > new Date().toLocaleDateString("en-CA")) {
+      alert("تاریخ ثبت نمی‌تواند در آینده باشد.");
+      return;
+    }
+
     try {
       await this.addPhoto(file, date, note);
+      this.selectedPhotos = [];
+
       alert("تصویر با موفقیت ذخیره شد.");
-      showPage("photos");
+
+      if (typeof showPage === "function") {
+        showPage("photos");
+      }
     } catch (error) {
+      console.error("Photo save error:", error);
       alert("ذخیره تصویر انجام نشد. فضای ذخیره‌سازی مرورگر را بررسی کن.");
     }
   },
@@ -297,11 +361,16 @@ const PhotosManager = {
 
     try {
       await this.deletePhoto(id);
+
       this.selectedPhotos = this.selectedPhotos.filter(
         photo => photo.id !== Number(id)
       );
-      showPage("photos");
+
+      if (typeof showPage === "function") {
+        showPage("photos");
+      }
     } catch (error) {
+      console.error("Photo delete error:", error);
       alert("حذف تصویر انجام نشد.");
     }
   }
@@ -324,4 +393,3 @@ document.addEventListener("click", event => {
     PhotosManager.handleDelete(deleteButton.dataset.photoDelete);
   }
 });
-
