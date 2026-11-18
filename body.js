@@ -49,6 +49,7 @@ window.showToast = window.showToast || function(message, type = "success") {
 
 const BodyTracker = {
   key: "bodyTrackMeasurements",
+  pendingDeleteIndex: null,
 
   fields: [
     { key: "weight", label: "وزن", unit: "کیلوگرم", step: "0.1", max: 500 },
@@ -250,7 +251,238 @@ const BodyTracker = {
     `;
   },
 
+  openDeleteModal(index) {
+    const records = this.getData();
+
+    if (!Number.isInteger(index) || index < 0 || index >= records.length) {
+      return;
+    }
+
+    this.pendingDeleteIndex = index;
+
+    let modal = document.getElementById("body-track-delete-modal");
+
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "body-track-delete-modal";
+
+      modal.innerHTML = `
+        <div class="bt-delete-overlay" data-close-delete>
+          <section
+            class="bt-delete-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bt-delete-title"
+            aria-describedby="bt-delete-description"
+          >
+            <div class="bt-delete-icon">🗑️</div>
+
+            <span class="bt-delete-eyebrow">BODY TRACK SECURITY</span>
+
+            <h3 id="bt-delete-title">حذف اندازه‌گیری؟</h3>
+
+            <p id="bt-delete-description">
+              آیا مطمئنی می‌خواهی این رکورد را حذف کنی؟
+              این عملیات قابل بازگشت نیست.
+            </p>
+
+            <div class="bt-delete-actions">
+              <button type="button" class="bt-cancel-delete" data-close-delete>
+                انصراف
+              </button>
+
+              <button type="button" class="bt-confirm-delete" id="bt-confirm-delete">
+                بله، حذف کن
+              </button>
+            </div>
+          </section>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      const style = document.createElement("style");
+      style.id = "body-track-delete-style";
+
+      style.textContent = `
+        #body-track-delete-modal {
+          position: fixed;
+          inset: 0;
+          z-index: 100000;
+          display: none;
+          font-family: Vazirmatn, sans-serif;
+          direction: rtl;
+        }
+
+        #body-track-delete-modal.bt-modal-open {
+          display: block;
+        }
+
+        .bt-delete-overlay {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(0, 0, 0, .76);
+          backdrop-filter: blur(9px);
+          -webkit-backdrop-filter: blur(9px);
+          animation: btFadeIn .2s ease;
+        }
+
+        .bt-delete-dialog {
+          width: 100%;
+          max-width: 390px;
+          padding: 30px 24px 24px;
+          text-align: center;
+          border-radius: 24px;
+          background: linear-gradient(145deg, #14251d, #09140f);
+          border: 1px solid rgba(32, 199, 122, .25);
+          box-shadow: 0 25px 80px rgba(0, 0, 0, .55);
+          animation: btDialogIn .25s ease;
+        }
+
+        .bt-delete-icon {
+          width: 64px;
+          height: 64px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 18px;
+          border-radius: 20px;
+          background: rgba(224, 91, 91, .12);
+          border: 1px solid rgba(224, 91, 91, .3);
+          font-size: 27px;
+        }
+
+        .bt-delete-eyebrow {
+          color: #20c77a;
+          font-size: 10px;
+          letter-spacing: 2px;
+          font-weight: 800;
+        }
+
+        .bt-delete-dialog h3 {
+          color: #f4fff8;
+          font-size: 21px;
+          font-weight: 800;
+          margin: 12px 0;
+        }
+
+        .bt-delete-dialog p {
+          color: #a4b8ac;
+          font-size: 13px;
+          line-height: 2;
+          margin: 0 0 25px;
+        }
+
+        .bt-delete-actions {
+          display: flex;
+          gap: 10px;
+        }
+
+        .bt-delete-actions button {
+          flex: 1;
+          min-height: 47px;
+          border-radius: 13px;
+          font-family: inherit;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: .2s ease;
+        }
+
+        .bt-cancel-delete {
+          color: #d8e5dd;
+          background: #1b2b22;
+          border: 1px solid #344a3c;
+        }
+
+        .bt-confirm-delete {
+          color: white;
+          background: linear-gradient(135deg, #c74747, #8e2929);
+          border: 1px solid #e05b5b;
+          box-shadow: 0 5px 18px rgba(180, 40, 40, .2);
+        }
+
+        .bt-delete-actions button:active {
+          transform: scale(.97);
+        }
+
+        @keyframes btFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes btDialogIn {
+          from { opacity: 0; transform: translateY(15px) scale(.96); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @media (max-width: 420px) {
+          .bt-delete-dialog {
+            padding: 25px 18px 20px;
+          }
+        }
+      `;
+
+      document.head.appendChild(style);
+    }
+
+    modal.classList.add("bt-modal-open");
+
+    const confirmButton = modal.querySelector("#bt-confirm-delete");
+
+    if (confirmButton) {
+      confirmButton.focus();
+    }
+  },
+
+  closeDeleteModal() {
+    const modal = document.getElementById("body-track-delete-modal");
+
+    if (modal) {
+      modal.classList.remove("bt-modal-open");
+    }
+
+    this.pendingDeleteIndex = null;
+  },
+
+  confirmDelete() {
+    const index = this.pendingDeleteIndex;
+
+    if (!Number.isInteger(index)) {
+      this.closeDeleteModal();
+      return;
+    }
+
+    const records = this.getData();
+
+    if (index < 0 || index >= records.length) {
+      this.closeDeleteModal();
+      return;
+    }
+
+    records.splice(index, 1);
+
+    if (!this.saveData(records)) {
+      this.closeDeleteModal();
+      return;
+    }
+
+    this.closeDeleteModal();
+
+    if (typeof showPage === "function") {
+      showPage("body");
+    }
+
+    window.showToast("اندازه‌گیری با موفقیت حذف شد! ✓");
+  },
+
   handleDelete(event) {
+    if (!(event.target instanceof Element)) return;
+
     const button = event.target.closest("[data-delete-measurement]");
 
     if (!button) return;
@@ -259,23 +491,34 @@ const BodyTracker = {
 
     if (!Number.isInteger(index)) return;
 
-    const records = this.getData();
+    this.openDeleteModal(index);
+  },
 
-    if (index < 0 || index >= records.length) return;
+  handleModalClick(event) {
+    if (!(event.target instanceof Element)) return;
 
-    if (!confirm("آیا مطمئنی می‌خواهی این اندازه‌گیری را حذف کنی؟")) {
+    const modal = document.getElementById("body-track-delete-modal");
+
+    if (!modal || !modal.classList.contains("bt-modal-open")) return;
+
+    if (event.target.closest("#bt-confirm-delete")) {
+      this.confirmDelete();
       return;
     }
 
-    records.splice(index, 1);
-
-    if (!this.saveData(records)) return;
-
-    if (typeof showPage === "function") {
-      showPage("body");
+    if (event.target.closest("[data-close-delete]")) {
+      this.closeDeleteModal();
     }
+  },
 
-    window.showToast("اندازه‌گیری با موفقیت حذف شد! ✓");
+  handleKeydown(event) {
+    if (event.key !== "Escape") return;
+
+    const modal = document.getElementById("body-track-delete-modal");
+
+    if (modal && modal.classList.contains("bt-modal-open")) {
+      this.closeDeleteModal();
+    }
   },
 
   handleSubmit(event) {
@@ -332,4 +575,9 @@ document.addEventListener("submit", event => {
 
 document.addEventListener("click", event => {
   BodyTracker.handleDelete(event);
+  BodyTracker.handleModalClick(event);
+});
+
+document.addEventListener("keydown", event => {
+  BodyTracker.handleKeydown(event);
 });
