@@ -11,6 +11,11 @@ const BackupManager = {
 
   openDB() {
     return new Promise((resolve, reject) => {
+      if (!("indexedDB" in window)) {
+        reject(new Error("IndexedDB is not supported."));
+        return;
+      }
+
       const request = indexedDB.open(this.dbName, 1);
 
       request.onupgradeneeded = event => {
@@ -30,28 +35,37 @@ const BackupManager = {
 
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
+
+      request.onblocked = () => {
+        reject(new Error("Database upgrade is blocked."));
+      };
     });
   },
 
-  getPhotos() {
-    return this.openDB().then(db => new Promise((resolve, reject) => {
+  async getPhotos() {
+    const db = await this.openDB();
+
+    return new Promise((resolve, reject) => {
       const transaction = db.transaction(this.storeName, "readonly");
       const request = transaction.objectStore(this.storeName).getAll();
 
-      request.onsuccess = () => {
-        resolve(request.result);
-        db.close();
-      };
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
 
-      request.onerror = () => {
-        reject(request.error);
-        db.close();
-      };
-    }));
+      transaction.oncomplete = () => db.close();
+
+      transaction.onerror = () => db.close();
+      transaction.onabort = () => db.close();
+    });
   },
 
   blobToDataURL(blob) {
     return new Promise((resolve, reject) => {
+      if (!(blob instanceof Blob)) {
+        reject(new Error("Invalid image data."));
+        return;
+      }
+
       const reader = new FileReader();
 
       reader.onload = () => resolve(reader.result);
@@ -62,9 +76,20 @@ const BackupManager = {
   },
 
   dataURLToBlob(dataURL) {
-    const parts = dataURL.split(",");
-    const mime = parts[0].match(/:(.*?);/)[1];
-    const binary = atob(parts[1]);
+    if (typeof dataURL !== "string") {
+      throw new Error("Invalid image format.");
+    }
+
+    const match = dataURL.match(
+      /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/
+    );
+
+    if (!match) {
+      throw new Error("Unsupported image format.");
+    }
+
+    const mime = match[1];
+    const binary = atob(match[2]);
     const bytes = new Uint8Array(binary.length);
 
     for (let i = 0; i < binary.length; i++) {
@@ -92,15 +117,15 @@ const BackupManager = {
         storedPhotos.map(async photo => ({
           id: photo.id,
           date: photo.date,
-          note: photo.note,
-          createdAt: photo.createdAt,
+          note: photo.note || "",
+          createdAt: photo.createdAt || "",
           image: await this.blobToDataURL(photo.image)
         }))
       );
 
       const backup = {
         app: "BODY TRACK",
-        version: "1.1.0",
+        version: "1.2.0",
         exportedAt: new Date().toISOString(),
         localData,
         photos
@@ -121,13 +146,66 @@ const BackupManager = {
       link.click();
       link.remove();
 
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
 
       alert("نسخه پشتیبان اطلاعات و تصاویر آماده شد.");
     } catch (error) {
-      console.error(error);
-      alert("ساخت نسخه پشتیبان انجام نشد.");
+      console.error("Backup export error:", error);
+      alert("ساخت نسخه پشتیبان انجام نشد. دوباره تلاش کن.");
     }
+  },
+
+  validateBackup(backup) {
+    if (
+      !backup ||
+      typeof backup !== "object" ||
+      backup.app !== "BODY TRACK" ||
+      !backup.localData ||
+      typeof backup.localData !== "object" ||
+      Array.isArray(backup.localData)
+    ) {
+      throw new Error("Invalid backup structure.");
+    }
+
+    this.exportKeys.forEach(key => {
+      if (
+        Object.prototype.hasOwnProperty.call(backup.localData, key)
+      ) {
+        const value = backup.localData[key];
+
+        if (
+          value === null ||
+          typeof value !== "object"
+        ) {
+          throw new Error("Invalid local data.");
+        }
+      }
+    });
+
+    if (
+      backup.photos !== undefined &&
+      !Array.isArray(backup.photos)
+    ) {
+      throw new Error("Invalid photos list.");
+    }
+
+    const photos = backup.photos || [];
+
+    photos.forEach(photo => {
+      if (
+        !photo ||
+        !Number.isSafeInteger(photo.id) ||
+        photo.id < 1 ||
+        typeof photo.date !== "string" ||
+        !photo.image
+      ) {
+        throw new Error("Invalid photo record.");
+      }
+
+      this.dataURLToBlob(photo.image);
+    });
+
+    return true;
   },
 
   async restorePhotos(photos) {
@@ -139,7 +217,7 @@ const BackupManager = {
 
       store.clear();
 
-      photos.forEach(photo => {
+      (photos || []).forEach(photo => {
         store.add({
           id: photo.id,
           date: photo.date,
@@ -158,46 +236,103 @@ const BackupManager = {
         db.close();
         reject(transaction.error);
       };
+
+      transaction.onabort = () => {
+        db.close();
+        reject(transaction.error || new Error("Restore aborted."));
+      };
     });
   },
 
   async importData(file) {
     try {
+      if (!file || !file.name.toLowerCase().endsWith(".json")) {
+        throw new Error("Please select a JSON backup file.");
+      }
+
+      if (file.size > 150 * 1024 * 1024) {
+        throw new Error("Backup file is too large.");
+      }
+
       const text = await file.text();
       const backup = JSON.parse(text);
 
-      if (
-        backup.app !== "BODY TRACK" ||
-        !backup.localData ||
-        typeof backup.localData !== "object"
-      ) {
-        throw new Error("Invalid backup");
-      }
+      this.validateBackup(backup);
 
-      if (!confirm(
+      const confirmed = confirm(
         "با بازیابی نسخه پشتیبان، اطلاعات فعلی جایگزین می‌شوند. ادامه می‌دهی؟"
-      )) {
-        return;
-      }
+      );
+
+      if (!confirmed) return;
+
+      // Keep a copy of the current data in case restoration fails.
+      const oldLocalData = {};
 
       this.exportKeys.forEach(key => {
-        if (Object.prototype.hasOwnProperty.call(backup.localData, key)) {
-          localStorage.setItem(
-            key,
-            JSON.stringify(backup.localData[key])
-          );
-        }
+        oldLocalData[key] = localStorage.getItem(key);
       });
 
-      if (Array.isArray(backup.photos)) {
-        await this.restorePhotos(backup.photos);
+      const oldPhotos = await this.getPhotos();
+
+      try {
+        // Restore photos first.
+        if (Array.isArray(backup.photos)) {
+          await this.restorePhotos(backup.photos);
+        }
+
+        // Restore local data.
+        this.exportKeys.forEach(key => {
+          if (
+            Object.prototype.hasOwnProperty.call(
+              backup.localData,
+              key
+            )
+          ) {
+            localStorage.setItem(
+              key,
+              JSON.stringify(backup.localData[key])
+            );
+          } else {
+            localStorage.removeItem(key);
+          }
+        });
+
+      } catch (restoreError) {
+        // Try to return the app to its previous state.
+        try {
+          await this.restorePhotos(
+            oldPhotos.map(photo => ({
+              id: photo.id,
+              date: photo.date,
+              note: photo.note || "",
+              createdAt: photo.createdAt || "",
+              image: await this.blobToDataURL(photo.image)
+            }))
+          );
+        } catch (rollbackError) {
+          console.error("Photo rollback error:", rollbackError);
+        }
+
+        this.exportKeys.forEach(key => {
+          try {
+            if (oldLocalData[key] === null) {
+              localStorage.removeItem(key);
+            } else {
+              localStorage.setItem(key, oldLocalData[key]);
+            }
+          } catch (storageError) {
+            console.error("Storage rollback error:", storageError);
+          }
+        });
+
+        throw restoreError;
       }
 
       alert("اطلاعات و تصاویر با موفقیت بازیابی شدند.");
       location.reload();
 
     } catch (error) {
-      console.error(error);
+      console.error("Backup import error:", error);
       alert("فایل انتخاب‌شده معتبر نیست یا بازیابی آن انجام نشد.");
     }
   },
