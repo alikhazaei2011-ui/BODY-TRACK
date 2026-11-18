@@ -42,6 +42,7 @@ function renderLayout(content, activePage = "home") {
           <button data-page="body" class="${activePage === "body" ? "active" : ""}">اندازه‌های بدن</button>
           <button data-page="progress" class="${activePage === "progress" ? "active" : ""}">پیشرفت من</button>
           <button data-page="profile" class="${activePage === "profile" ? "active" : ""}">پروفایل</button>
+          <button data-page="backup" class="${activePage === "backup" ? "active" : ""}">پشتیبان‌گیری</button>
         </nav>
 
         <div class="sidebar-footer">
@@ -69,6 +70,7 @@ function renderLayout(content, activePage = "home") {
         <button data-page="body" class="${activePage === "body" ? "active" : ""}">بدن</button>
         <button data-page="progress" class="${activePage === "progress" ? "active" : ""}">پیشرفت</button>
         <button data-page="profile" class="${activePage === "profile" ? "active" : ""}">پروفایل</button>
+        <button data-page="backup" class="${activePage === "backup" ? "active" : ""}">پشتیبان</button>
       </nav>
     </div>
   `;
@@ -80,7 +82,8 @@ function getPageTitle(page) {
     workout: "برنامه تمرینی",
     body: "اندازه‌های بدن",
     progress: "گزارش پیشرفت",
-    profile: "پروفایل من"
+    profile: "پروفایل من",
+    backup: "پشتیبان‌گیری اطلاعات"
   };
 
   return titles[page] || "BODY TRACK";
@@ -160,6 +163,12 @@ function renderHome() {
         <span>03</span>
         <strong>پروفایل شخصی</strong>
         <small>اطلاعات شخصی‌ات را مدیریت کن</small>
+      </button>
+
+      <button class="quick-card" data-page="backup">
+        <span>04</span>
+        <strong>پشتیبان‌گیری</strong>
+        <small>از اطلاعاتت نسخه پشتیبان بگیر</small>
       </button>
     </div>
   `;
@@ -278,6 +287,8 @@ function showPage(page) {
     renderLayout(ProgressTracker.render(), "progress");
   } else if (page === "profile") {
     renderLayout(ProfileManager.render(), "profile");
+  } else if (page === "backup") {
+    renderLayout(BackupManager.render(), "backup");
   }
 }
 
