@@ -388,52 +388,6 @@ function renderNameEditor() {
   });
 }
 
-/* BODY MEASUREMENTS */
-
-function getMeasurements() {
-  try {
-    if (
-      typeof BodyTracker !== "undefined" &&
-      typeof BodyTracker.getData === "function"
-    ) {
-      const data = BodyTracker.getData();
-      return Array.isArray(data) ? data : [];
-    }
-  } catch (error) {
-    console.error("Measurement data error:", error);
-  }
-
-  return [];
-}
-
-function formatMeasurement(value) {
-  if (value === undefined || value === null || value === "") return "—";
-  return escapeHTML(value);
-}
-
-function getMeasurementChange(current, previous, field, unit = "") {
-  const currentValue = Number(current?.[field]);
-  const previousValue = Number(previous?.[field]);
-
-  if (
-    !current ||
-    !previous ||
-    current[field] === "" ||
-    previous[field] === "" ||
-    !Number.isFinite(currentValue) ||
-    !Number.isFinite(previousValue)
-  ) {
-    return "برای مقایسه، به ثبت قبلی نیاز داریم.";
-  }
-
-  const difference = currentValue - previousValue;
-
-  if (difference === 0) return "بدون تغییر نسبت به ثبت قبلی";
-
-  const sign = difference > 0 ? "+" : "";
-  return `${sign}${difference.toFixed(1)} ${unit} نسبت به ثبت قبلی`;
-}
-
 /* WEEKLY REPORT */
 
 function getWeeklyStats() {
@@ -470,15 +424,6 @@ function renderHome() {
     return;
   }
 
-  const measurements = getMeasurements();
-  const latest = measurements.length
-    ? measurements[measurements.length - 1]
-    : null;
-
-  const previous = measurements.length > 1
-    ? measurements[measurements.length - 2]
-    : null;
-
   const weekly = getWeeklyStats();
 
   const content = `
@@ -513,58 +458,26 @@ function renderHome() {
 
     <div class="stats-grid">
       <article class="stat-card">
-        <span>وزن فعلی</span>
-        <strong>${formatMeasurement(latest?.weight)}</strong>
-        <small>${latest?.weight !== undefined ? "کیلوگرم" : "هنوز ثبت نشده"}</small>
+        <span>مدیریت اندازه‌ها</span>
+        <strong>${icons.body}</strong>
+        <small>ثبت و بررسی تغییرات بدن</small>
+        <button type="button" class="secondary-btn" data-page="body">
+          ورود به اندازه‌های بدن
+        </button>
       </article>
 
       <article class="stat-card">
-        <span>دور بازو</span>
-        <strong>${formatMeasurement(latest?.arm)}</strong>
-        <small>${latest?.arm !== undefined ? "سانتی‌متر" : "هنوز ثبت نشده"}</small>
+        <span>گزارش تمرین</span>
+        <strong>${weekly.completed}</strong>
+        <small>حرکت تکمیل‌شده در برنامه</small>
       </article>
 
       <article class="stat-card">
-        <span>دور سینه</span>
-        <strong>${formatMeasurement(latest?.chest)}</strong>
-        <small>${latest?.chest !== undefined ? "سانتی‌متر" : "هنوز ثبت نشده"}</small>
+        <span>پیشرفت هفتگی</span>
+        <strong>${weekly.percentage}%</strong>
+        <small>درصد تکمیل برنامه</small>
       </article>
     </div>
-
-    <section class="stat-card" style="margin-top:16px;">
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">LATEST MEASUREMENT</span>
-          <h3>آخرین ثبت اندازه‌ها</h3>
-        </div>
-        <span class="muted-text">${latest?.date ? escapeHTML(latest.date) : "بدون تاریخ"}</span>
-      </div>
-
-      ${
-        latest
-          ? `
-            <div style="display:grid;gap:12px;">
-              <div>
-                <strong>تغییر وزن:</strong>
-                <span>${getMeasurementChange(latest, previous, "weight", "کیلوگرم")}</span>
-              </div>
-              <div>
-                <strong>تغییر دور بازو:</strong>
-                <span>${getMeasurementChange(latest, previous, "arm", "سانتی‌متر")}</span>
-              </div>
-              <div>
-                <strong>تغییر دور سینه:</strong>
-                <span>${getMeasurementChange(latest, previous, "chest", "سانتی‌متر")}</span>
-              </div>
-            </div>
-          `
-          : `
-            <p class="muted-text">
-              هنوز اندازه‌ای ثبت نکردی. اولین اندازه‌گیریت رو ثبت کن تا تغییراتت رو ببینی.
-            </p>
-          `
-      }
-    </section>
 
     <div class="section-heading" style="margin-top:30px;">
       <div>
