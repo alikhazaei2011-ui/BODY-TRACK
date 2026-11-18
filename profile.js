@@ -4,13 +4,15 @@ const ProfileManager = {
 
   getData() {
     try {
-      const data = JSON.parse(localStorage.getItem(this.key) || "{}");
+      const data = JSON.parse(
+        localStorage.getItem(this.key) || "{}"
+      );
 
       return data && typeof data === "object" && !Array.isArray(data)
         ? data
         : {};
     } catch (error) {
-      console.error("Profile data error:", error);
+      console.error("Profile read error:", error);
       return {};
     }
   },
@@ -18,7 +20,12 @@ const ProfileManager = {
   saveData(data) {
     try {
       localStorage.setItem(this.key, JSON.stringify(data));
-      return true;
+
+      const savedData = JSON.parse(
+        localStorage.getItem(this.key) || "{}"
+      );
+
+      return JSON.stringify(savedData) === JSON.stringify(data);
     } catch (error) {
       console.error("Profile save error:", error);
       return false;
@@ -64,7 +71,9 @@ const ProfileManager = {
       <section class="empty-card" style="text-align:right">
         <form id="profile-form" class="form-grid">
 
-          <label class="stat-label" for="profile-name">نام نمایشی</label>
+          <label class="stat-label" for="profile-name">
+            نام نمایشی
+          </label>
           <input
             id="profile-name"
             name="name"
@@ -86,7 +95,9 @@ const ProfileManager = {
             placeholder="سن"
           >
 
-          <label class="stat-label" for="profile-goal">هدف اصلی</label>
+          <label class="stat-label" for="profile-goal">
+            هدف اصلی
+          </label>
           <select id="profile-goal" name="goal">
             ${goals.map(([value, label]) => `
               <option value="${value}"
@@ -111,6 +122,13 @@ const ProfileManager = {
           <button class="primary-button" type="submit">
             ذخیره تغییرات
           </button>
+
+          <p
+            id="profile-save-message"
+            role="status"
+            aria-live="polite"
+            style="display:none; text-align:center; margin-top:12px;"
+          ></p>
         </form>
       </section>
 
@@ -143,18 +161,37 @@ const ProfileManager = {
   },
 
   handleSubmit(event) {
-    if (!event.target || event.target.id !== "profile-form") return;
+    const formElement = event.target;
+
+    if (!formElement || formElement.id !== "profile-form") {
+      return;
+    }
 
     event.preventDefault();
 
-    const form = new FormData(event.target);
+    const message = document.getElementById(
+      "profile-save-message"
+    );
+
+    const showMessage = (text, success) => {
+      if (!message) {
+        alert(text);
+        return;
+      }
+
+      message.textContent = text;
+      message.style.display = "block";
+      message.style.color = success ? "#00D995" : "#ff7777";
+    };
+
+    const form = new FormData(formElement);
 
     const name = String(form.get("name") || "").trim();
     const ageValue = String(form.get("age") || "").trim();
     const age = ageValue ? Number(ageValue) : "";
 
     if (name.length > 40) {
-      alert("نام نمایشی نباید بیشتر از ۴۰ کاراکتر باشد.");
+      showMessage("نام نباید بیشتر از ۴۰ کاراکتر باشد.", false);
       return;
     }
 
@@ -162,27 +199,31 @@ const ProfileManager = {
       ageValue &&
       (!Number.isInteger(age) || age < 1 || age > 120)
     ) {
-      alert("لطفاً یک سن معتبر وارد کن.");
+      showMessage("لطفاً سن معتبر وارد کن.", false);
       return;
     }
 
-    const profile = {
+    const oldProfile = this.getData();
+
+    const updatedProfile = {
+      ...oldProfile,
       name,
       age,
       goal: form.get("goal") || "muscle",
       unit: form.get("unit") === "lb" ? "lb" : "kg"
     };
 
-    const saved = this.saveData(profile);
+    const saved = this.saveData(updatedProfile);
 
     if (!saved) {
-      alert("ذخیره اطلاعات انجام نشد. فضای ذخیره‌سازی دستگاه را بررسی کن.");
+      showMessage(
+        "ذخیره اطلاعات انجام نشد. دوباره تلاش کن.",
+        false
+      );
       return;
     }
 
-    if (typeof showPage === "function") {
-      showPage("profile");
-    }
+    showMessage("تغییرات با موفقیت ذخیره شد ✓", true);
   }
 };
 
