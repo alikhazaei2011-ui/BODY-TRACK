@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "body-track-v2";
+const CACHE_NAME = "body-track-v3";
 
 const APP_FILES = [
   "./",
@@ -20,6 +20,7 @@ self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES))
   );
+
   self.skipWaiting();
 });
 
@@ -28,11 +29,15 @@ self.addEventListener("activate", event => {
     caches.keys().then(keys =>
       Promise.all(
         keys
-          .filter(key => key.startsWith("body-track-") && key !== CACHE_NAME)
+          .filter(key =>
+            key.startsWith("body-track-") &&
+            key !== CACHE_NAME
+          )
           .map(key => caches.delete(key))
       )
     )
   );
+
   self.clients.claim();
 });
 
@@ -44,14 +49,16 @@ self.addEventListener("fetch", event => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: "no-cache" })
       .then(response => {
         if (response && response.ok) {
           const copy = response.clone();
+
           caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, copy);
           });
         }
+
         return response;
       })
       .catch(async () => {
