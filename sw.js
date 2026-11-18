@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "body-track-v1";
+const CACHE_NAME = "body-track-v2";
 
 const APP_FILES = [
   "./",
