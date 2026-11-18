@@ -281,6 +281,8 @@ function showPage(page) {
     renderWorkout();
   } else if (page === "body") {
     renderLayout(BodyTracker.render(), "body");
+  } else if (page === "progress") {
+    renderLayout(ProgressTracker.render(), "progress");
   } else {
     renderPlaceholder(page);
   }
@@ -288,7 +290,6 @@ function showPage(page) {
 
 function renderPlaceholder(page) {
   const titles = {
-    progress: "پیشرفت",
     profile: "پروفایل"
   };
 
