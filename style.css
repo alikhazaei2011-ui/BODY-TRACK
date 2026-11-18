@@ -1860,3 +1860,280 @@ input[type="file"] {
     bottom: calc(95px + env(safe-area-inset-bottom));
   }
 }
+
+/* =====================================
+   WORKOUT — COMPACT REDESIGN
+===================================== */
+
+.workout-compact {
+  width: 100%;
+}
+
+.workout-week-header {
+  margin-bottom: 15px;
+}
+
+.workout-week-header h3 {
+  color: var(--text);
+  font-size: 17px;
+  margin-bottom: 6px;
+}
+
+.workout-week-header p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+/* Day selector */
+.workout-compact .days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.workout-compact .day-card {
+  min-width: 0;
+  min-height: 65px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 3px;
+  border-radius: 14px;
+}
+
+.workout-compact .day-card small {
+  color: inherit;
+  opacity: .75;
+  font-family: var(--font-en);
+  font-size: 9px;
+}
+
+.workout-compact .day-card.selected small {
+  opacity: .8;
+}
+
+/* Selected day section */
+.workout-day-section {
+  padding: 19px;
+  background: linear-gradient(
+    140deg,
+    rgba(28,63,45,.7),
+    rgba(10,28,18,.82)
+  );
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 12px 35px rgba(0,0,0,.17);
+}
+
+.workout-day-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.workout-day-heading h3 {
+  color: var(--text);
+  font-size: 17px;
+}
+
+.workout-count {
+  padding: 6px 11px;
+  color: var(--accent-light);
+  background: rgba(0,217,149,.1);
+  border: 1px solid rgba(0,217,149,.2);
+  border-radius: 20px;
+  font-family: var(--font-en);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Progress bar */
+.workout-progress-track {
+  width: 100%;
+  height: 7px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  background: rgba(0,0,0,.3);
+  border-radius: 20px;
+}
+
+.workout-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00B97F, #8BFFCB);
+  border-radius: inherit;
+  transition: width .3s ease;
+}
+
+/* Add exercise dropdown */
+.add-exercise-details {
+  margin: 15px 0;
+  overflow: hidden;
+  background: rgba(0,217,149,.055);
+  border: 1px solid rgba(0,217,149,.2);
+  border-radius: 14px;
+}
+
+.add-exercise-details summary {
+  padding: 14px 16px;
+  color: var(--accent-light);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.add-exercise-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.add-exercise-details summary::before {
+  content: "+";
+  display: inline-grid;
+  width: 23px;
+  height: 23px;
+  margin-left: 9px;
+  place-items: center;
+  background: rgba(0,217,149,.15);
+  border-radius: 8px;
+  font-family: var(--font-en);
+  font-size: 16px;
+}
+
+.add-exercise-details[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.compact-exercise-form {
+  display: grid;
+  gap: 11px;
+  padding: 16px;
+}
+
+.compact-exercise-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #B8DCC7;
+  font-size: 12px;
+}
+
+.compact-exercise-form input {
+  min-height: 45px;
+}
+
+.compact-exercise-form .form-grid {
+  gap: 10px;
+}
+
+.compact-exercise-form button {
+  width: 100%;
+  min-height: 47px;
+  margin-top: 5px;
+}
+
+/* Exercise cards */
+.workout-compact .exercise-list {
+  gap: 9px;
+  margin-top: 15px;
+}
+
+.workout-compact .exercise-card {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(4,20,12,.55);
+}
+
+.workout-compact .exercise-info strong {
+  font-size: 13px;
+}
+
+.workout-compact .exercise-info span,
+.workout-compact .exercise-info small {
+  font-size: 11px;
+}
+
+.workout-compact .exercise-actions button {
+  min-height: 36px;
+  padding: 8px 11px;
+  font-size: 10px;
+}
+
+.workout-compact .empty-state {
+  padding: 23px 15px;
+  margin-top: 12px;
+}
+
+.workout-finished-message {
+  padding: 13px;
+  margin-top: 15px;
+  color: var(--accent-light);
+  text-align: center;
+  background: rgba(0,217,149,.08);
+  border: 1px solid rgba(0,217,149,.2);
+  border-radius: 13px;
+  font-size: 12px;
+}
+
+/* Mobile workout layout */
+@media (max-width: 768px) {
+  .workout-compact .days-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .workout-compact .day-card {
+    min-height: 59px;
+    font-size: 12px;
+  }
+
+  .workout-day-section {
+    padding: 15px;
+    border-radius: 17px;
+  }
+
+  .workout-day-heading h3 {
+    font-size: 15px;
+  }
+
+  .workout-compact .exercise-card {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .workout-compact .exercise-actions {
+    width: auto;
+  }
+
+  .workout-compact .exercise-actions button {
+    flex: initial;
+  }
+
+  .compact-exercise-form .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 380px) {
+  .workout-compact .days-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .workout-compact .exercise-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .workout-compact .exercise-actions {
+    width: 100%;
+  }
+
+  .workout-compact .exercise-actions button {
+    flex: 1;
+  }
+}
