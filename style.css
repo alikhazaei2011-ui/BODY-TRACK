@@ -1358,3 +1358,183 @@ body.modal-open {
     transition-duration: .01ms !important;
   }
 }
+
+/* =====================================
+   BODY TRACK — MOBILE & PHOTO FIXES
+===================================== */
+
+/* جلوگیری از سفید شدن فضای اسکرول در موبایل */
+html {
+  min-height: 100%;
+  background-color: #07110D;
+  overscroll-behavior-y: none;
+}
+
+body {
+  min-height: 100vh;
+  background-color: #07110D;
+  background-attachment: scroll;
+  overscroll-behavior-y: none;
+}
+
+#app,
+.app-shell,
+.main-content {
+  background-color: transparent;
+}
+
+@supports (min-height: 100dvh) {
+  body,
+  #app,
+  .app-shell {
+    min-height: 100dvh;
+  }
+}
+
+/* فرم ثبت عکس — بازتر و منظم‌تر */
+.photo-upload-card {
+  padding: 30px;
+  margin-bottom: 28px;
+}
+
+.photo-upload-icon {
+  width: 64px;
+  height: 64px;
+  font-size: 34px;
+  border-radius: 19px;
+}
+
+.photo-upload-card h3 {
+  font-size: 22px;
+  margin-bottom: 12px;
+}
+
+#photo-form {
+  gap: 17px;
+  margin-top: 22px;
+}
+
+#photo-form label {
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+#photo-form input,
+#photo-form textarea {
+  min-height: 54px;
+  border-radius: 16px !important;
+}
+
+#photo-form input[type="file"] {
+  min-height: 60px;
+  padding: 14px;
+  direction: ltr;
+}
+
+#photo-form textarea {
+  min-height: 110px;
+}
+
+#photo-form .primary-btn {
+  width: 100%;
+  min-height: 55px;
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+/* انتخاب تصاویر برای مقایسه */
+.comparison-selectors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+  margin-top: 20px;
+}
+
+.comparison-selectors label {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  color: #B9DCC7;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.comparison-selectors select {
+  min-width: 0;
+  min-height: 50px;
+  font-size: 12px;
+}
+
+.comparison-grid {
+  align-items: start;
+}
+
+.comparison-image-box {
+  min-width: 0;
+  overflow: hidden;
+  padding: 10px;
+  background: rgba(3, 18, 11, .65);
+  border: 1px solid var(--border);
+  border-radius: 17px;
+}
+
+.comparison-image-box img {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+}
+
+.comparison-placeholder {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  padding: 15px;
+  color: #779786;
+  background: rgba(4, 17, 11, .65);
+  border: 1px dashed rgba(0, 217, 149, .22);
+  border-radius: 14px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.9;
+}
+
+/* اطمینان از مخفی ماندن تصاویر انتخاب‌نشده */
+[hidden] {
+  display: none !important;
+}
+
+/* موبایل */
+@media (max-width: 768px) {
+  .photo-upload-card {
+    padding: 22px 18px;
+    border-radius: 23px;
+  }
+
+  .photo-upload-card h3 {
+    font-size: 20px;
+  }
+
+  .comparison-selectors {
+    gap: 9px;
+  }
+
+  .comparison-selectors select {
+    padding: 10px 8px;
+    font-size: 11px;
+  }
+
+  .comparison-image-box {
+    padding: 7px;
+  }
+
+  .comparison-placeholder {
+    min-height: 145px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 360px) {
+  .comparison-selectors {
+    grid-template-columns: 1fr;
+  }
+}
